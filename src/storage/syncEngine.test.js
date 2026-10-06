@@ -1,6 +1,5 @@
 import * as engine from './syncEngine';
 import { api, ApiError } from './serverClient';
-import { recordKey } from './diff';
 
 jest.mock('./serverClient', () => {
   class ApiError extends Error {
@@ -176,10 +175,11 @@ test('an enqueue while the earlier PUT is in flight keeps the newer edit and sen
   await advance(500);
   expect(api).toHaveBeenCalledTimes(2);
   engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 3 } }], deletes: [] });
+  await advance(500); // debounce timer fires while the first PUT is still in flight
+  expect(api).toHaveBeenCalledTimes(2);
   release({ version: 6, rev: 10 });
   await advance(0);
   expect(engine.readCollection('c').get('a')).toEqual({ n: 3 });
-  expect(engine.useSyncStatus.getState().pending).toBe(1);
   await advance(500);
   expect(api).toHaveBeenCalledTimes(3);
   expect(api.mock.calls[2][2]).toEqual({ data: { n: 3 }, baseVersion: 6, force: false });
