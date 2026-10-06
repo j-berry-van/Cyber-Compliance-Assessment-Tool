@@ -32,6 +32,8 @@ let pollTimer = null;
 let flushing = false;
 let rerun = false;
 let backoff = 0;
+let held = false;             // sends paused (AuthGate decides about importing before anything is written)
+let emptyAtBootstrap = false; // server workspace had no live records and the outbox was empty at bootstrap
 let focusHandler = null;
 let ready;
 let markReady;
@@ -72,13 +74,15 @@ const refreshStatus = (patch = {}) => {
 
 const emit = (collections) => listeners.forEach((fn) => fn(collections));
 
-export async function bootstrap(forUser = 'anonymous') {
+export async function bootstrap(forUser = 'anonymous', { hold = false } = {}) {
   userId = String(forUser ?? 'anonymous');
   const res = await api('GET', '/records?since=0');
   cache = new Map(res.records.map((r) => [recordKey(r.collection, r.id), entryOf(r)]));
   cursor = res.cursor;
   outbox = loadOutbox();
   conflicts = loadConflicts();
+  if (hold) { held = true; clearTimeout(flushTimer); }
+  emptyAtBootstrap = outbox.size === 0 && ![...cache.values()].some((e) => !e.deleted);
   conflicts.forEach((c, key) => {
     const have = cache.get(key);
     if (have && have.version > (c.theirsVersion ?? 0)) {
@@ -106,11 +110,23 @@ export function readCollection(collection) {
   return out;
 }
 
-// True when the server workspace has no live records and nothing is waiting to be sent.
-export function isWorkspaceEmpty() {
-  if (outbox.size) return false;
-  for (const e of cache.values()) if (!e.deleted) return false;
-  return true;
+// True when the server workspace had no live records and nothing was waiting to be sent when it was
+// loaded. Recorded at bootstrap so writes made afterwards (e.g. first-sign-in store defaults) cannot
+// hide an empty workspace from the import check.
+export const isWorkspaceEmpty = () => emptyAtBootstrap;
+
+export function releaseFlush() {
+  if (!held) return;
+  held = false;
+  if (outbox.size) scheduleFlush(0);
+}
+
+// Drops unsent changes. Used after a successful import into an empty workspace: whatever was queued
+// since bootstrap is store defaults, which must not overwrite the imported records.
+export function clearOutbox() {
+  outbox = new Map();
+  persistOutbox();
+  refreshStatus();
 }
 
 export function getEntries(collection) {
@@ -137,10 +153,12 @@ export function enqueue({ puts = [], deletes = [] }) {
 
 function scheduleFlush(ms) {
   clearTimeout(flushTimer);
+  if (held) return;
   flushTimer = setTimeout(() => { flushNow(); }, ms);
 }
 
 export async function flushNow() {
+  if (held) return;
   if (flushing) { rerun = true; return; }
   flushing = true;
   let failed = false;
@@ -273,7 +291,7 @@ export function reset() {
   stop();
   clearTimeout(flushTimer);
   cache = new Map(); outbox = new Map(); conflicts = new Map();
-  cursor = 0; flushing = false; rerun = false; backoff = 0;
+  cursor = 0; flushing = false; rerun = false; backoff = 0; held = false; emptyAtBootstrap = false;
   listeners.clear();
   problems.clear();
   newReady();

@@ -382,10 +382,37 @@ test('isWorkspaceEmpty: false with a cached record, true when it is only a tombs
   expect(engine.isWorkspaceEmpty()).toBe(true);
 });
 
-test('isWorkspaceEmpty: false with a pending outbox op', async () => {
+test('isWorkspaceEmpty is decided at bootstrap: later writes do not hide an empty workspace', async () => {
   await boot([]);
   engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 1 } }], deletes: [] });
+  expect(engine.isWorkspaceEmpty()).toBe(true);
+});
+
+test('isWorkspaceEmpty: false when a stale outbox was waiting at bootstrap', async () => {
+  localStorage.setItem('csf-sync-outbox:anonymous', JSON.stringify([{ collection: 'c', id: 'a', op: 'put', data: { n: 1 }, baseVersion: 0 }]));
+  await boot([]);
   expect(engine.isWorkspaceEmpty()).toBe(false);
+});
+
+test('bootstrap with hold sends nothing until releaseFlush; clearOutbox drops unsent changes', async () => {
+  api.mockResolvedValueOnce({ cursor: 0, records: [] });
+  await engine.bootstrap('anonymous', { hold: true });
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 1 } }], deletes: [] });
+  await advance(2000);
+  expect(api.mock.calls.filter(([m]) => m === 'PUT')).toHaveLength(0);
+  api.mockResolvedValue({ version: 1, rev: 1 });
+  engine.releaseFlush();
+  await advance(10);
+  expect(api.mock.calls.filter(([m]) => m === 'PUT')).toHaveLength(1);
+  engine.reset();
+  api.mockClear();
+  api.mockResolvedValueOnce({ cursor: 0, records: [] });
+  await engine.bootstrap('anonymous', { hold: true });
+  engine.enqueue({ puts: [{ collection: 'c', id: 'b', data: { n: 1 } }], deletes: [] });
+  engine.clearOutbox();
+  engine.releaseFlush();
+  await advance(2000);
+  expect(api.mock.calls.filter(([m]) => m === 'PUT')).toHaveLength(0);
 });
 
 test('a poll echo of our own flushed write fills server metadata without emitting a change', async () => {

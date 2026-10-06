@@ -28,11 +28,17 @@ export function createApp({ db = null, staticDir = null } = {}) {
     crossOriginEmbedderPolicy: false,
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
   }));
+  // Browsers send an Origin header on same-origin POST/PUT/PATCH/DELETE, so "same host" must pass
+  // alongside the explicit allow-list (which only matters for a separately hosted dev front end).
+  const hostOf = (req) => (process.env.TRUST_PROXY === 'true' && req.get('x-forwarded-host')) || req.get('host');
+  const originAllowed = (req) => {
+    const origin = req.get('origin');
+    if (!origin || allowedOrigins.includes(origin)) return true;
+    try { return new URL(origin).host === hostOf(req); } catch { return false; }
+  };
+  app.use((req, res, next) => (originAllowed(req) ? next() : res.status(403).json({ error: 'origin-not-allowed' })));
   app.use(cors({
-    origin(origin, cb) {
-      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-      return cb(new Error('Not allowed by CORS'));
-    },
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

@@ -86,12 +86,12 @@ test('a 401 during an authenticated session returns to the login screen', async 
   api.mockImplementation(signedInApi({ signedIn: true }));
   render(<AuthGate><div>app</div></AuthGate>);
   expect(await screen.findByText('app')).toBeInTheDocument();
-  expect(require('../stores/userStore').default.getState().accountDisplayName).toBe('Admin');
+  expect(require('../stores/accountStore').default.getState().accountDisplayName).toBe('Admin');
   act(() => { global.__unauthorized(); });
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument();
   expect(screen.queryByText('app')).not.toBeInTheDocument();
   expect(useAuthStore.getState().status).toBe('anonymous');
-  expect(require('../stores/userStore').default.getState().accountDisplayName).toBeNull();
+  expect(require('../stores/accountStore').default.getState().accountDisplayName).toBeNull();
 });
 
 test('an unsent outbox survives a 401 and is replayed after the next login', async () => {
@@ -188,7 +188,7 @@ describe('linking the account to its participant', () => {
   const useUserStore = require('../stores/userStore').default;
   const baseUsers = useUserStore.getState().users;
   const run = async (participantId, participants) => {
-    useUserStore.setState({ users: participants, currentUserId: null, accountDisplayName: null });
+    useUserStore.setState({ users: participants, currentUserId: null });
     const base = signedInApi({ signedIn: true });
     api.mockImplementation(async (m, p) => (p === '/auth/me'
       ? { id: 1, username: 'admin', displayName: 'Admin', isAdmin: true, participantId }
@@ -196,13 +196,13 @@ describe('linking the account to its participant', () => {
     render(<AuthGate><div>app</div></AuthGate>);
     expect(await screen.findByText('app')).toBeInTheDocument();
   };
-  afterEach(() => useUserStore.setState({ users: baseUsers, currentUserId: null, accountDisplayName: null }));
+  afterEach(() => useUserStore.setState({ users: baseUsers, currentUserId: null }));
 
   test('numeric participant id links and sets the account display name', async () => {
     await run(3, [{ id: 2, name: 'Two' }, { id: 3, name: 'Three' }]);
     expect(useUserStore.getState().currentUserId).toBe(3);
     expect(useUserStore.getState().getCurrentUserName()).toBe('Three');
-    expect(useUserStore.getState().accountDisplayName).toBe('Admin');
+    expect(require('../stores/accountStore').default.getState().accountDisplayName).toBe('Admin');
   });
 
   test('string participant id matches a numeric participant (and vice versa) using the original id', async () => {

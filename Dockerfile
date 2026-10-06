@@ -19,7 +19,7 @@ RUN npm ci --omit=dev
 COPY server/ ./
 COPY --from=build /app/build /app/build
 RUN mkdir -p /data && chown node:node /data
-ENV MULTIUSER=true STATIC_DIR=/app/build DATA_DIR=/data PORT=4000
+ENV NODE_ENV=production MULTIUSER=true STATIC_DIR=/app/build DATA_DIR=/data PORT=4000
 # Set COOKIE_SECURE=true (served over HTTPS) or TRUST_PROXY=true (behind a TLS-terminating proxy) at run time.
 USER node
 VOLUME /data

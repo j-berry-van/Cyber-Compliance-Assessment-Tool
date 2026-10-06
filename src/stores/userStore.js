@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { DEMO_SEED_SOURCE } from '../utils/assessmentScope';
 import { createStorage } from '../storage/createStorage';
+import useAccountStore from './accountStore';
 
 // Default users for new installations — the demo (Alma Security) staff.
 // seedSource marks them as shipped example data (issue #297) so the directory
@@ -92,16 +93,12 @@ const useUserStore = create(
       // trust model as every other store. null = no selection → 'System'.
       currentUserId: null,
 
-      // Signed-in server account's display name (server mode only). Only this field is never
-      // persisted (see partialize). currentUserId IS a per-browser field; AuthGate clears it when a
-      // different account signs in (without a linked participant) so it cannot carry over.
-      accountDisplayName: null,
-      setAccountDisplayName: (name) => set({ accountDisplayName: name ?? null }),
-
       setCurrentUser: (id) => {
         // Positive resolution: only a truthy directory lookup may be stored,
         // so a stale/garbage id can never brand writes (null clears).
         if (id !== null && !get().getUserById(id)) return;
+        // No-op when unchanged: every set() reaches persist, and in server mode that can queue writes.
+        if (get().currentUserId === id) return;
         set({ currentUserId: id });
       },
 
@@ -115,7 +112,7 @@ const useUserStore = create(
 
       getCurrentUserName: () => {
         const user = get().getCurrentUser();
-        return user?.name || get().accountDisplayName || 'System';
+        return user?.name || useAccountStore.getState().accountDisplayName || 'System';
       },
 
       // Add a single user

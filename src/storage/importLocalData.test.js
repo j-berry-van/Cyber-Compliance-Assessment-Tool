@@ -1,13 +1,13 @@
 import { collectLocalRecords, hasLocalData, importLocalData, buildLocalBackup, IMPORT_DONE_KEY } from './importLocalData';
 import { api } from './serverClient';
-import { bootstrap } from './syncEngine';
+import { bootstrap, clearOutbox } from './syncEngine';
 import { rehydrateAll } from './rehydrateOnRemote';
 
 jest.mock('./serverClient', () => ({ api: jest.fn(), ApiError: class extends Error {}, setUnauthorizedHandler: jest.fn() }));
-jest.mock('./syncEngine', () => ({ bootstrap: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('./syncEngine', () => ({ bootstrap: jest.fn().mockResolvedValue(undefined), clearOutbox: jest.fn() }));
 jest.mock('./rehydrateOnRemote', () => ({ rehydrateAll: jest.fn().mockResolvedValue(undefined) }));
 
-beforeEach(() => { localStorage.clear(); api.mockReset(); bootstrap.mockClear(); rehydrateAll.mockClear(); });
+beforeEach(() => { localStorage.clear(); api.mockReset(); bootstrap.mockClear(); clearOutbox.mockClear(); rehydrateAll.mockClear(); });
 
 const put = (k, state, version = 1) => localStorage.setItem(k, JSON.stringify({ state, version }));
 const seed = () => {
@@ -87,6 +87,7 @@ test('a refused import (workspace not empty) rejects, keeps local data, and does
   await expect(importLocalData({ userId: 'u7' })).rejects.toMatchObject({ status: 409 });
   expect(localStorage.getItem('csf-comments-storage')).toBeTruthy();
   expect(bootstrap).not.toHaveBeenCalled();
+  expect(clearOutbox).not.toHaveBeenCalled();
   expect(rehydrateAll).not.toHaveBeenCalled();
 });
 

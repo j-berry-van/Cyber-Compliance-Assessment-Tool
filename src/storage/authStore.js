@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import toast from 'react-hot-toast';
 import { api, setUnauthorizedHandler } from './serverClient';
 import { bootstrap, start, stop } from './syncEngine';
-import useUserStore from '../stores/userStore';
+import useAccountStore from '../stores/accountStore';
 import { wireRemoteRehydration, rehydrateAll } from './rehydrateOnRemote';
 
 const loadDirectory = async () => {
@@ -14,8 +14,9 @@ let enteredBefore = false;
 
 const enter = async (set, user) => {
   // The engine's outbox/conflicts are keyed per signed-in user.
-  await bootstrap(user.id);
-  useUserStore.getState().setAccountDisplayName(user.displayName);
+  // Hold sends until AuthGate has made the import decision (it calls releaseFlush()).
+  await bootstrap(user.id, { hold: true });
+  useAccountStore.getState().setAccountDisplayName(user.displayName);
   wireRemoteRehydration();
   // After a session expiry (possibly a different user) the in-memory stores may hold stale data.
   if (enteredBefore) await rehydrateAll();
@@ -96,7 +97,7 @@ const useAuthStore = create((set) => ({
 setUnauthorizedHandler(() => {
   if (useAuthStore.getState().status === 'authenticated') {
     stop();
-    useUserStore.getState().setAccountDisplayName(null);
+    useAccountStore.getState().setAccountDisplayName(null);
     useAuthStore.setState({ status: 'anonymous', user: null, error: 'Your session expired. Sign in again to continue.' });
   }
 });

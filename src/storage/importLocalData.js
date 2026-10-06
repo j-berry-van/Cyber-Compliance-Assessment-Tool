@@ -1,5 +1,5 @@
 import { api } from './serverClient';
-import { bootstrap } from './syncEngine';
+import { bootstrap, clearOutbox } from './syncEngine';
 import { rehydrateAll } from './rehydrateOnRemote';
 import { STORE_CONFIGS } from './storeConfigs';
 import { toRecords, isStateRecord } from './diff';
@@ -65,6 +65,7 @@ export async function importLocalData({ userId } = {}) {
   const { records } = collectLocalRecords();
   const result = await api('POST', '/import', { records });
   try { localStorage.setItem(IMPORT_DONE_KEY, '1'); } catch { /* best effort */ }
+  clearOutbox();
   try {
     await bootstrap(userId ?? 'anonymous');
     await rehydrateAll();

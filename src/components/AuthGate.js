@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import useAuthStore from '../storage/authStore';
 import { isServerMode } from '../storage/createStorage';
 import { whenAllHydrated } from '../storage/rehydrateOnRemote';
-import { isWorkspaceEmpty } from '../storage/syncEngine';
+import { isWorkspaceEmpty, releaseFlush } from '../storage/syncEngine';
 import { hasLocalData, IMPORT_DECLINED_KEY, IMPORT_DONE_KEY } from '../storage/importLocalData';
 import ImportLocalDataPrompt from './ImportLocalDataPrompt';
 import useUserStore from '../stores/userStore';
@@ -42,7 +42,9 @@ export default function AuthGate({ children }) {
       }
       if (account) { try { localStorage.setItem(LAST_ACCOUNT_KEY, String(account.id)); } catch { /* best effort */ } }
       // Decide before children mount: their seed effects would otherwise fill the workspace first.
-      setImportNeeded(isWorkspaceEmpty() && hasLocalData() && !localFlag(IMPORT_DONE_KEY) && !localFlag(IMPORT_DECLINED_KEY));
+      const needed = isWorkspaceEmpty() && hasLocalData() && !localFlag(IMPORT_DONE_KEY) && !localFlag(IMPORT_DECLINED_KEY);
+      if (!needed) releaseFlush();
+      setImportNeeded(needed);
       setHydrated(true);
     });
     return () => { cancelled = true; };
@@ -53,6 +55,6 @@ export default function AuthGate({ children }) {
   if (status === 'needsSetup') return <Login mode="setup" />;
   if (status === 'anonymous') return <Login mode="login" />;
   if (!hydrated) return <Centered>Loading workspace…</Centered>;
-  if (importNeeded) return <ImportLocalDataPrompt onResolved={() => setImportNeeded(false)} />;
+  if (importNeeded) return <ImportLocalDataPrompt onResolved={() => { releaseFlush(); setImportNeeded(false); }} />;
   return children;
 }
