@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Gauge, Search, Upload } from 'lucide-react';
 import useMetricsStore from '../stores/metricsStore';
 import useRequirementsStore from '../stores/requirementsStore';
 import useFrameworksStore from '../stores/frameworksStore';
+import { metricsCatalogueNote } from '../utils/modeCopy';
 
 /**
  * Metrics — drill down from CSF functions → categories → subcategories to the
@@ -151,8 +152,8 @@ const Metrics = () => {
         <h1 className="text-xl font-bold mt-4 text-gray-900 dark:text-gray-100">Metrics</h1>
         <p className="mt-3 text-gray-600 dark:text-gray-300">
           No metrics yet. This app ships no metric content — you bring your own catalogue
-          as a local CSV file (KPIs, KRIs, and metrics mapped to CSF subcategories) and it
-          stays on this machine.
+          as a local CSV file (KPIs, KRIs, and metrics mapped to CSF subcategories) and it{' '}
+          {metricsCatalogueNote()}.
         </p>
         <p className="mt-3 text-gray-600 dark:text-gray-300">
           To add metrics, open <strong>Settings</strong> and use the{' '}

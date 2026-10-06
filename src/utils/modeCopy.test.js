@@ -1,6 +1,6 @@
 import {
   firstVisitStorageNote, backupReminderCopy, orgProfileStorageNote, packDataNote,
-  orgProfileSavedToast, orgProfileClearConfirm, orgProfileWizardNote, quotaToastText
+  orgProfileSavedToast, orgProfileClearConfirm, orgProfileWizardNote, quotaToastText, metricsCatalogueNote
 } from './modeCopy';
 
 const withMode = (mode, fn) => {
@@ -22,6 +22,7 @@ describe('modeCopy', () => {
       expect(orgProfileClearConfirm()).toMatch(/from this browser/);
       expect(orgProfileWizardNote()).toMatch(/stays in this browser/);
       expect(quotaToastText()).toMatch(/NOT being saved/);
+      expect(metricsCatalogueNote()).toBe('stays on this machine');
     });
   });
 
@@ -35,6 +36,7 @@ describe('modeCopy', () => {
       expect(orgProfileClearConfirm()).toMatch(/for everyone/);
       expect(orgProfileWizardNote()).toMatch(/visible to every account/);
       expect(quotaToastText()).toMatch(/server/);
+      expect(metricsCatalogueNote()).toMatch(/saved to your organization.s server/);
     });
   });
 });

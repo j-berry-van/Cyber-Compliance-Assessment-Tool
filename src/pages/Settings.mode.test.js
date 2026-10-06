@@ -18,6 +18,7 @@ describe('Settings backup and storage wording', () => {
     expect(screen.getByText(/Important: Local Data Storage/)).toBeInTheDocument();
     expect(screen.getByText(/stored in your browser's local storage/)).toBeInTheDocument();
     expect(screen.getByText(/Pack data stays on this machine/)).toBeInTheDocument();
+    expect(screen.getByText(/separate local file that stays on this machine/)).toBeInTheDocument();
   });
 
   test('server mode says data is on the server and backups are the administrator\'s job', () => {
@@ -29,5 +30,7 @@ describe('Settings backup and storage wording', () => {
     expect(screen.queryByText(/stored in your browser's local storage/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Pack data stays on this machine/)).not.toBeInTheDocument();
     expect(screen.getByText(/Imported pack data is saved to your organization/)).toBeInTheDocument();
+    expect(screen.queryByText(/separate local file that stays on this machine/)).not.toBeInTheDocument();
+    expect(screen.getByText(/separate local file that is saved to your organization/)).toBeInTheDocument();
   });
 });

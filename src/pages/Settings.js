@@ -45,7 +45,7 @@ import { exportCompleteDatabase, exportAssessmentsJSON, exportShareableDatabase 
 import { importCompleteDatabase, validateDatabaseExport } from '../utils/dataImport';
 import { sanitizeExternalUrl } from '../utils/externalLinks';
 import { isServerMode } from '../storage/createStorage';
-import { orgProfileStorageNote, packDataNote, orgProfileClearConfirm } from '../utils/modeCopy';
+import { orgProfileStorageNote, packDataNote, orgProfileClearConfirm, metricsCatalogueNote } from '../utils/modeCopy';
 import { previewPackImport, importPack } from '../utils/packImport';
 import {
   parseMetricsCSV,
@@ -1076,7 +1076,7 @@ nist-csf-2.0,RECOVER (RC),Incident Recovery Plan Execution (RC.RP),RC.RP-01,The 
                 <h3 className="settings-section-title">Metrics Catalogue (CSV)</h3>
                 <p className="settings-section-desc">
                   Bring your own KPIs, KRIs, and metrics mapped to CSF subcategories. The app ships
-                  no metric content — your catalogue is a separate local file that stays on this machine.
+                  no metric content — your catalogue is a separate local file that {metricsCatalogueNote()}.
                 </p>
               </div>
             </div>

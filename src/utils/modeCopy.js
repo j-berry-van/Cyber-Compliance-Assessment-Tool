@@ -57,3 +57,9 @@ export const orgProfileWizardNote = () =>
   isServerMode()
     ? 'is sensitive. It is saved on your organization’s server and is visible to every account, and'
     : 'is sensitive. It stays in this browser\'s local storage, and';
+
+// Tail of the sentence "...a local CSV file that <note>" on the Metrics empty state and Settings card.
+export const metricsCatalogueNote = () =>
+  isServerMode()
+    ? 'is saved to your organization’s server once imported, visible to every account'
+    : 'stays on this machine';
