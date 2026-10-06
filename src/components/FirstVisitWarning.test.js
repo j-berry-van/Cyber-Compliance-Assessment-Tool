@@ -94,4 +94,22 @@ describe('FirstVisitWarning Component', () => {
 
     expect(screen.queryByText(/welcome to csf_profile/i)).not.toBeInTheDocument();
   });
+
+  describe('server mode', () => {
+    const prev = process.env.REACT_APP_SERVER_MODE;
+    beforeEach(() => { process.env.REACT_APP_SERVER_MODE = 'true'; });
+    afterEach(() => {
+      if (prev === undefined) delete process.env.REACT_APP_SERVER_MODE; else process.env.REACT_APP_SERVER_MODE = prev;
+    });
+
+    test('says data is saved to the server and not that it lives in the browser', () => {
+      backupTracking.isFirstVisit.mockReturnValue(true);
+
+      render(<FirstVisitWarning />);
+
+      expect(screen.getByText(/saved to your organization.s server/i)).toBeInTheDocument();
+      expect(screen.getByText(/administrator.s responsibility/i)).toBeInTheDocument();
+      expect(screen.queryByText(/data lives in your browser's local storage/i)).not.toBeInTheDocument();
+    });
+  });
 });

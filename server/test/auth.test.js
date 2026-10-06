@@ -107,6 +107,24 @@ test('cookie is Secure when COOKIE_SECURE=true', async () => {
   }
 });
 
+test('cookie is Secure behind a trusted proxy that reports https (TRUST_PROXY=true)', async () => {
+  const prev = process.env.TRUST_PROXY;
+  const body = { username: 'admin', displayName: 'Admin', password: 'correct horse battery' };
+  try {
+    process.env.TRUST_PROXY = 'true';
+    const trusted = await request(makeApp().app).post('/api/auth/setup').set(JSON_HEADERS)
+      .set('X-Forwarded-Proto', 'https').send(body).expect(200);
+    assert.match(trusted.headers['set-cookie'].find((c) => c.startsWith('csf_session=')), /; Secure/i);
+    // Without TRUST_PROXY the forwarded header is ignored (an untrusted client cannot influence the flag).
+    delete process.env.TRUST_PROXY;
+    const untrusted = await request(makeApp().app).post('/api/auth/setup').set(JSON_HEADERS)
+      .set('X-Forwarded-Proto', 'https').send(body).expect(200);
+    assert.doesNotMatch(untrusted.headers['set-cookie'].find((c) => c.startsWith('csf_session=')), /; Secure/i);
+  } finally {
+    if (prev === undefined) delete process.env.TRUST_PROXY; else process.env.TRUST_PROXY = prev;
+  }
+});
+
 test('session expiry slides forward on use', async () => {
   const { app, db } = makeApp();
   const agent = await setupAdmin(app);

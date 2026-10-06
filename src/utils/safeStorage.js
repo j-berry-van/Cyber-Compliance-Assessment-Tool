@@ -5,6 +5,7 @@
  * is ever hit, the user must know their latest changes are NOT saved.
  */
 import toast from 'react-hot-toast';
+import { quotaToastText } from './modeCopy';
 
 let quotaWarningShown = false;
 
@@ -17,11 +18,7 @@ export const quotaSafeLocalStorage = {
       console.error(`Persist failed for "${key}" (browser storage quota?):`, error);
       if (!quotaWarningShown) {
         quotaWarningShown = true;
-        toast.error(
-          'Browser storage is full — your latest changes are NOT being saved. ' +
-          'Export a backup now (Settings → Data Export), then remove old assessments.',
-          { duration: 10000 }
-        );
+        toast.error(quotaToastText(), { duration: 10000 });
       }
     }
   },

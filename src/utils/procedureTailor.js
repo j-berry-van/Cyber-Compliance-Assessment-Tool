@@ -11,8 +11,8 @@
  *    named. No signal → no swap. Never guesses.
  *  - AI (optional): rewrite an attached procedure with profile context via
  *    the configured provider. Cloud providers require explicit consent
- *    (orgProfileStore.cloudConsent) — the profile never leaves the machine
- *    without it. Local Ollama needs no consent.
+ *    (orgProfileStore.cloudConsent, per-browser) — the profile is never sent to a
+ *    cloud AI provider without it. Local Ollama needs no consent.
  *
  * Any tailored output carries procedureSource.tailored = true so share
  * export can swap it back to the pristine community version (the profile

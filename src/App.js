@@ -61,8 +61,8 @@ const AppContent = () => {
 
   useEffect(() => {
     // Ask the browser to protect this origin's storage from eviction under
-    // disk pressure — all assessment data lives in localStorage, so eviction
-    // is data loss. Best-effort: browsers may ignore it; regular exports
+    // disk pressure — in local mode all assessment data lives in localStorage,
+    // so eviction is data loss (in server mode it protects the unsent outbox). Best-effort: browsers may ignore it; regular exports
     // (BackupReminder) remain the real durability story.
     navigator.storage?.persist?.().catch(() => {});
   }, []);

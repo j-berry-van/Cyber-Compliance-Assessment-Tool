@@ -44,6 +44,8 @@ import AssessmentPicker from '../components/AssessmentPicker';
 import { exportCompleteDatabase, exportAssessmentsJSON, exportShareableDatabase } from '../utils/dataExport';
 import { importCompleteDatabase, validateDatabaseExport } from '../utils/dataImport';
 import { sanitizeExternalUrl } from '../utils/externalLinks';
+import { isServerMode } from '../storage/createStorage';
+import { orgProfileStorageNote, packDataNote, orgProfileClearConfirm } from '../utils/modeCopy';
 import { previewPackImport, importPack } from '../utils/packImport';
 import {
   parseMetricsCSV,
@@ -606,24 +608,41 @@ nist-csf-2.0,RECOVER (RC),Incident Recovery Plan Execution (RC.RP),RC.RP-01,The 
             </div>
             <div className="space-y-4">
               {/* Data Storage Warning */}
-              <div className="callout callout-warning flex items-start gap-3">
-                <AlertCircle style={{ color: '#c97b00', flexShrink: 0, marginTop: '2px' }} size={18} />
-                <div>
-                  <h3 className="settings-section-title" style={{ fontSize: '12px' }}>Important: Local Data Storage</h3>
-                  <p className="settings-section-desc mb-2">
-                    All assessment data is stored in your browser's local storage. This data can be lost if you:
-                  </p>
-                  <ul className="settings-section-desc list-disc list-inside space-y-1 mb-2">
-                    <li>Clear your browser cache or site data</li>
-                    <li>Uninstall or reset your browser</li>
-                    <li>Use browser cleanup utilities</li>
-                    <li>Reach browser storage limits</li>
-                  </ul>
-                  <p className="settings-section-desc" style={{ fontWeight: 600 }}>
-                    Always export your data regularly to prevent data loss.
-                  </p>
+              {isServerMode() ? (
+                <div className="callout callout-warning flex items-start gap-3">
+                  <AlertCircle style={{ color: '#c97b00', flexShrink: 0, marginTop: '2px' }} size={18} />
+                  <div>
+                    <h3 className="settings-section-title" style={{ fontSize: '12px' }}>Your data is saved on the server</h3>
+                    <p className="settings-section-desc mb-2">
+                      Assessment data is saved to your organization's server and shared with the other accounts.
+                      Clearing this browser's data does not delete it. Backing up the server's database is the
+                      administrator's responsibility.
+                    </p>
+                    <p className="settings-section-desc" style={{ fontWeight: 600 }}>
+                      The exports below still give you a personal copy of the data you can see.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="callout callout-warning flex items-start gap-3">
+                  <AlertCircle style={{ color: '#c97b00', flexShrink: 0, marginTop: '2px' }} size={18} />
+                  <div>
+                    <h3 className="settings-section-title" style={{ fontSize: '12px' }}>Important: Local Data Storage</h3>
+                    <p className="settings-section-desc mb-2">
+                      All assessment data is stored in your browser's local storage. This data can be lost if you:
+                    </p>
+                    <ul className="settings-section-desc list-disc list-inside space-y-1 mb-2">
+                      <li>Clear your browser cache or site data</li>
+                      <li>Uninstall or reset your browser</li>
+                      <li>Use browser cleanup utilities</li>
+                      <li>Reach browser storage limits</li>
+                    </ul>
+                    <p className="settings-section-desc" style={{ fontWeight: 600 }}>
+                      Always export your data regularly to prevent data loss.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Last Backup Info */}
               <div className="border-t dark:border-gray-700 pt-4">
@@ -992,7 +1011,7 @@ nist-csf-2.0,RECOVER (RC),Incident Recovery Plan Execution (RC.RP),RC.RP-01,The 
                   className="text-sm hover:underline"
                   style={{ color: 'var(--text-muted)' }}
                   onClick={() => {
-                    if (window.confirm('Clear the organization profile from this browser? Tailored text already in assessments is not changed.')) {
+                    if (window.confirm(orgProfileClearConfirm())) {
                       clearOrgProfile();
                       toast.success('Organization profile cleared');
                     }
@@ -1017,7 +1036,7 @@ nist-csf-2.0,RECOVER (RC),Incident Recovery Plan Execution (RC.RP),RC.RP-01,The 
               </label>
             )}
             <p className="settings-section-desc mt-3">
-              Stored only in this browser. <strong>Never included in shareable exports</strong> — tailored
+              {orgProfileStorageNote()} <strong>Never included in shareable exports</strong> — tailored
               procedure text is swapped back to the community version there. It rides complete backups
               only; password-protect backups that carry it.
             </p>
@@ -1045,8 +1064,7 @@ nist-csf-2.0,RECOVER (RC),Incident Recovery Plan Execution (RC.RP),RC.RP-01,The 
             <p className="settings-section-desc mt-3">
               Accepts *.csfpack.json files — see PRIVATE_DATA.md in the repository for the format.
               You will see a preview before anything is written. Re-importing a pack replaces what that
-              pack owns and never duplicates it. Pack data stays on this machine and is excluded from
-              shareable exports by default.
+              pack owns and never duplicates it. {packDataNote()}
             </p>
           </div>
 

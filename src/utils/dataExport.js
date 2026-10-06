@@ -1,7 +1,9 @@
 /**
  * Data export utilities for complete database backup/restore.
- * All persisted state lives in the browser's localStorage (zustand persist);
- * these helpers serialize it to a versioned JSON envelope.
+ * Persisted state lives in the browser's localStorage in local mode and on the
+ * server in multi-user mode (zustand persist either way); these helpers
+ * serialize the in-memory stores to a versioned JSON envelope, so exports work
+ * the same in both modes.
  */
 
 import { SHARE_SECTIONS, OMIT, foldSection, buildShareContext } from './shareRegistry';

@@ -12,6 +12,7 @@ import { apiLimiter } from './utils/rateLimiter.js';
 
 export function createApp({ db = null, staticDir = null } = {}) {
   const app = express();
+  if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
     : ['http://localhost:3000', 'http://127.0.0.1:3000'];
