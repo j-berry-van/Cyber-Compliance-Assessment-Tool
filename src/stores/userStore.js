@@ -92,6 +92,11 @@ const useUserStore = create(
       // trust model as every other store. null = no selection → 'System'.
       currentUserId: null,
 
+      // Signed-in server account's display name (server mode only). Deliberately NOT persisted
+      // (see partialize) so one user's identity can never leak to the next login in this browser.
+      accountDisplayName: null,
+      setAccountDisplayName: (name) => set({ accountDisplayName: name ?? null }),
+
       setCurrentUser: (id) => {
         // Positive resolution: only a truthy directory lookup may be stored,
         // so a stale/garbage id can never brand writes (null clears).
@@ -109,7 +114,7 @@ const useUserStore = create(
 
       getCurrentUserName: () => {
         const user = get().getCurrentUser();
-        return user?.name || 'System';
+        return user?.name || get().accountDisplayName || 'System';
       },
 
       // Add a single user
@@ -248,6 +253,7 @@ const useUserStore = create(
       name: 'csf-users-storage',
       storage: createStorage('csf-users-storage'),
       version: 3,
+      partialize: (s) => ({ users: s.users, currentUserId: s.currentUserId }),
       migrate: (persistedState, version) => migrateUsersState(persistedState, version),
     }
   )

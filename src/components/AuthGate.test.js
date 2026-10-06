@@ -11,6 +11,14 @@ jest.mock('../storage/serverClient', () => {
   return { api: jest.fn(), ApiError, setUnauthorizedHandler: (fn) => { global.__unauthorized = fn; } };
 });
 
+// The stores are created before these tests turn server mode on, so their default localStorage
+// persistence would write the (unchanged) user directory and look like "local data" to the import
+// check. Real server mode persists through the sync engine, which diffs and writes nothing.
+jest.mock('../storage/createStorage', () => ({
+  ...jest.requireActual('../storage/createStorage'),
+  createStorage: () => ({ getItem: () => null, setItem: () => {}, removeItem: () => {} })
+}));
+
 const err401 = () => { const e = new Error('401'); e.status = 401; return e; };
 
 beforeEach(() => {
@@ -78,10 +86,12 @@ test('a 401 during an authenticated session returns to the login screen', async 
   api.mockImplementation(signedInApi({ signedIn: true }));
   render(<AuthGate><div>app</div></AuthGate>);
   expect(await screen.findByText('app')).toBeInTheDocument();
+  expect(require('../stores/userStore').default.getState().accountDisplayName).toBe('Admin');
   act(() => { global.__unauthorized(); });
   expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument();
   expect(screen.queryByText('app')).not.toBeInTheDocument();
   expect(useAuthStore.getState().status).toBe('anonymous');
+  expect(require('../stores/userStore').default.getState().accountDisplayName).toBeNull();
 });
 
 test('an unsent outbox survives a 401 and is replayed after the next login', async () => {
@@ -168,5 +178,52 @@ describe('blocking import step', () => {
     render(<AuthGate><div>app</div></AuthGate>);
     expect(await screen.findByText('app')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /import this browser/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('linking the account to its participant', () => {
+  const { IMPORT_DECLINED_KEY } = require('../storage/importLocalData');
+  // Seeding participants writes local data, which would otherwise raise the import prompt.
+  beforeEach(() => localStorage.setItem(IMPORT_DECLINED_KEY, '1'));
+  const useUserStore = require('../stores/userStore').default;
+  const baseUsers = useUserStore.getState().users;
+  const run = async (participantId, participants) => {
+    useUserStore.setState({ users: participants, currentUserId: null, accountDisplayName: null });
+    const base = signedInApi({ signedIn: true });
+    api.mockImplementation(async (m, p) => (p === '/auth/me'
+      ? { id: 1, username: 'admin', displayName: 'Admin', isAdmin: true, participantId }
+      : base(m, p)));
+    render(<AuthGate><div>app</div></AuthGate>);
+    expect(await screen.findByText('app')).toBeInTheDocument();
+  };
+  afterEach(() => useUserStore.setState({ users: baseUsers, currentUserId: null, accountDisplayName: null }));
+
+  test('numeric participant id links and sets the account display name', async () => {
+    await run(3, [{ id: 2, name: 'Two' }, { id: 3, name: 'Three' }]);
+    expect(useUserStore.getState().currentUserId).toBe(3);
+    expect(useUserStore.getState().getCurrentUserName()).toBe('Three');
+    expect(useUserStore.getState().accountDisplayName).toBe('Admin');
+  });
+
+  test('string participant id matches a numeric participant (and vice versa) using the original id', async () => {
+    await run('3', [{ id: 3, name: 'Three' }]);
+    expect(useUserStore.getState().currentUserId).toBe(3);
+  });
+
+  test('uuid string participant id links', async () => {
+    await run('abc-123', [{ id: 'abc-123', name: 'Uu' }]);
+    expect(useUserStore.getState().currentUserId).toBe('abc-123');
+  });
+
+  test('a non-matching participant id leaves currentUserId unchanged', async () => {
+    useUserStore.setState({ currentUserId: 2 });
+    const base = signedInApi({ signedIn: true });
+    useUserStore.setState({ users: [{ id: 2, name: 'Two' }] });
+    api.mockImplementation(async (m, p) => (p === '/auth/me'
+      ? { id: 1, username: 'admin', displayName: 'Admin', isAdmin: true, participantId: 99 }
+      : base(m, p)));
+    render(<AuthGate><div>app</div></AuthGate>);
+    expect(await screen.findByText('app')).toBeInTheDocument();
+    expect(useUserStore.getState().currentUserId).toBe(2);
   });
 });

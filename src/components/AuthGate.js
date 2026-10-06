@@ -5,6 +5,7 @@ import { whenAllHydrated } from '../storage/rehydrateOnRemote';
 import { isWorkspaceEmpty } from '../storage/syncEngine';
 import { hasLocalData, IMPORT_DECLINED_KEY, IMPORT_DONE_KEY } from '../storage/importLocalData';
 import ImportLocalDataPrompt from './ImportLocalDataPrompt';
+import useUserStore from '../stores/userStore';
 import Login from '../pages/Login';
 
 const Centered = ({ children }) => <div className="min-h-screen flex items-center justify-center text-gray-600">{children}</div>;
@@ -25,6 +26,12 @@ export default function AuthGate({ children }) {
     let cancelled = false;
     whenAllHydrated().then(() => {
       if (cancelled) return;
+      // Link the account to its participant so comments/audit entries use that identity.
+      const participantId = useAuthStore.getState().user?.participantId;
+      if (participantId != null) {
+        const match = useUserStore.getState().users.find((p) => String(p.id) === String(participantId));
+        if (match) useUserStore.getState().setCurrentUser(match.id);
+      }
       // Decide before children mount: their seed effects would otherwise fill the workspace first.
       setImportNeeded(isWorkspaceEmpty() && hasLocalData() && !localFlag(IMPORT_DONE_KEY) && !localFlag(IMPORT_DECLINED_KEY));
       setHydrated(true);

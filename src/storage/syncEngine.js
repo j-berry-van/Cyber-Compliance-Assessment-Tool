@@ -214,7 +214,11 @@ export async function pollNow() {
   res.records.forEach((r) => {
     const key = recordKey(r.collection, r.id);
     const have = cache.get(key);
-    if (have && have.version >= r.version) return;
+    if (have && have.version >= r.version) {
+      // Our own echoed write: fill the server metadata without emitting a change.
+      if (have.updatedBy == null) { have.updatedBy = r.updatedBy; have.updatedAt = r.updatedAt; }
+      return;
+    }
     cache.set(key, entryOf(r));
     changed.add(r.collection);
     const c = conflicts.get(key);

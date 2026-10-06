@@ -387,3 +387,27 @@ test('isWorkspaceEmpty: false with a pending outbox op', async () => {
   engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 1 } }], deletes: [] });
   expect(engine.isWorkspaceEmpty()).toBe(false);
 });
+
+test('a poll echo of our own flushed write fills server metadata without emitting a change', async () => {
+  await boot([rec('c', 'a', { n: 1 }, 1)], 5);
+  api.mockResolvedValueOnce({ version: 2, rev: 6 });
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 2 } }], deletes: [] });
+  await advance(500);
+  expect(engine.getEntries('c')[0]).toMatchObject({ version: 2, updatedBy: null, updatedAt: null });
+  const heard = jest.fn();
+  engine.onRemoteChange(heard);
+  api.mockResolvedValueOnce({ cursor: 6, records: [{ ...rec('c', 'a', { n: 2 }, 2), updatedBy: 7, updatedAt: '2026-01-01T00:00:00.000Z' }] });
+  await engine.pollNow();
+  expect(engine.getEntries('c')[0]).toMatchObject({ data: { n: 2 }, version: 2, updatedBy: 7, updatedAt: '2026-01-01T00:00:00.000Z' });
+  expect(heard).not.toHaveBeenCalled();
+});
+
+test('a poll with a higher version still replaces the entry and emits', async () => {
+  await boot([rec('c', 'a', { n: 1 }, 1)], 5);
+  const heard = jest.fn();
+  engine.onRemoteChange(heard);
+  api.mockResolvedValueOnce({ cursor: 6, records: [{ ...rec('c', 'a', { n: 3 }, 3), updatedBy: 9 }] });
+  await engine.pollNow();
+  expect(engine.getEntries('c')[0]).toMatchObject({ data: { n: 3 }, version: 3, updatedBy: 9 });
+  expect(heard).toHaveBeenCalledTimes(1);
+});
