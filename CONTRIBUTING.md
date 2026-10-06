@@ -171,7 +171,7 @@ cd server && npm ci && MULTIUSER=true STATIC_DIR=../build DATA_DIR=/tmp/csf-dev 
 Use a throwaway `DATA_DIR` while developing. The details, env vars and Docker are in [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 Most client tests run in local mode; tests that cover mode-specific behaviour set `process.env.REACT_APP_SERVER_MODE`
 themselves and restore it afterwards. `better-sqlite3` is pinned to `^11` in `server/package.json` because it must run
-on Node 18; do not bump it without also moving the supported Node version.
+on Node 18 (newer majors drop Node 18 support); do not bump it without also moving the supported Node version.
 
 ### Test Requirements
 

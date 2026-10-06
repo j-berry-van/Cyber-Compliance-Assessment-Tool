@@ -53,11 +53,6 @@ export const orgProfileClearConfirm = () =>
     ? 'Clear the organization profile for everyone? It is stored on the server and shared by every account. Tailored text already in assessments is not changed.'
     : 'Clear the organization profile from this browser? Tailored text already in assessments is not changed.';
 
-export const orgProfileWizardNote = () =>
-  isServerMode()
-    ? 'is sensitive. It is saved on your organization’s server and is visible to every account, and'
-    : 'is sensitive. It stays in this browser\'s local storage, and';
-
 // Tail of the sentence "...a local CSV file that <note>" on the Metrics empty state and Settings card.
 export const metricsCatalogueNote = () =>
   isServerMode()

@@ -24,7 +24,7 @@ makes on its own is the optional AI proxy, if you configure a Claude API key.
 - A way to serve HTTPS (reverse proxy such as Caddy or nginx) if anyone reaches it over a network.
 
 `better-sqlite3` is pinned to `^11` in `server/package.json` because it is the last major version that runs on
-Node 18; newer majors need Node 22 or later. If you move to a newer Node, update that dependency in the same change
+Node 18; newer majors drop Node 18 support (the latest requires Node 22 or later). If you move to a newer Node, update that dependency in the same change
 and re-run the server tests.
 
 ## 1. Build the client
@@ -46,6 +46,10 @@ cd server
 npm ci
 MULTIUSER=true STATIC_DIR=../build DATA_DIR=/var/lib/csf COOKIE_SECURE=true PORT=4000 node index.js
 ```
+
+Caution: with `COOKIE_SECURE=true`, a browser that reaches the site over plain `http://` (anything other than
+localhost) drops the Secure session cookie and sign-in silently fails. Use HTTPS, or leave `COOKIE_SECURE` unset for a
+trial run.
 
 The server serves the built app and the API from one port and creates `DATA_DIR/csf.db` on first start. Database
 migrations run automatically at startup.
@@ -74,7 +78,7 @@ directory, so start it from `server/`.
 | `CLAUDE_TIMEOUT_MS` | `60000` | Optional upstream timeout for the proxy. |
 
 In multi-user mode the AI proxy (`/api/ai/*`) requires a signed-in session, and is still rate limited per IP
-(50 requests per 15 minutes). Without a key the proxy returns a mock response, as in local development.
+(10 requests per 15 minutes per IP; status checks count against the same limit). Without a key the proxy returns a mock response, as in local development.
 
 ## 3. HTTPS with a reverse proxy
 
@@ -137,12 +141,32 @@ Take a consistent copy while the server runs:
 sqlite3 /var/lib/csf/csf.db ".backup '/backups/csf-$(date +%F).db'"
 ```
 
+In Docker the slim image has no `sqlite3` command. Use the `better-sqlite3` backup API inside the container instead
+(`csf` is the container name from the example above; the working directory is `/app/server`):
+
+```bash
+docker exec csf node --input-type=module -e "import Database from 'better-sqlite3'; const db = new Database('/data/csf.db'); await db.backup('/data/csf-backup.db'); db.close(); console.log('ok')"
+docker cp csf:/data/csf-backup.db ./csf-backup-$(date +%F).db
+docker exec csf rm /data/csf-backup.db
+```
+
+Alternatively, stop the container (`docker stop csf`), copy the volume's directory (for example `docker cp csf:/data ./csf-data`
+works on a stopped container, or copy the volume from the host's Docker volume path), and start it again.
+
 Do not just `cp csf.db` while the server is running: with write-ahead logging, recent writes can sit in
 `csf.db-wal`. If you copy files instead, stop the server first and copy the whole `DATA_DIR`.
 
-Restore: stop the server, put the backup at `DATA_DIR/csf.db`, delete any `csf.db-wal` and `csf.db-shm` next to it,
-and start the server again. Sessions are in the same file, so people will be signed in or out as of the backup.
-Anything edited after the backup was taken is lost.
+Restore, in this order:
+
+1. Stop the server.
+2. Tell everyone to close **all** tabs of the app. Each open tab holds an in-memory sync position and could otherwise
+   miss changes, or replay queued edits against the restored (older) database.
+3. Put the backup at `DATA_DIR/csf.db` and delete any `csf.db-wal` and `csf.db-shm` next to it.
+4. Start the server.
+5. Everyone reloads the app.
+
+Sessions are in the same file, so people will be signed in or out as of the backup. Anything edited after the backup
+was taken is lost.
 
 Keep the data directory readable only by the server's user (for example `chmod 700 /var/lib/csf`), and encrypt or
 protect your backup copies: they contain every assessment, the organization profile and the password hashes.
@@ -172,9 +196,9 @@ console.log('password reset for', user);
 unset CSF_NEW_PASSWORD
 ```
 
-Use the same `DATA_DIR` the server uses. In Docker, open a shell in the container with `docker exec -it csf bash`; the
-image already has `better-sqlite3` and the server code in `/app/server` (the working directory), and `DATA_DIR` is
-already `/data`, so drop the `DATA_DIR=...` prefix.
+Use the same `DATA_DIR` the server uses. In Docker, open a shell in the container with `docker exec -it csf bash`. The
+shell starts in `/app/server` (the Dockerfile's `WORKDIR`, where `better-sqlite3` and `utils/passwords.js` live), so skip
+`cd server`, and `DATA_DIR` is already `/data`, so drop the `DATA_DIR=...` prefix.
 
 ## Upgrading
 

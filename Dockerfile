@@ -2,7 +2,7 @@
 # plus the API from one Node process. See docs/SELF_HOSTING.md.
 #
 # Node 18 is kept on purpose: server/package.json pins better-sqlite3 ^11, the last major that supports Node 18
-# (newer majors need Node 22+). If you move to a newer Node, move better-sqlite3 with it and re-test.
+# (newer majors drop Node 18 support). If you move to a newer Node, move better-sqlite3 with it and re-test.
 FROM node:18-bookworm AS build
 WORKDIR /app
 COPY package*.json ./

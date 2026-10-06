@@ -3,7 +3,8 @@ import { X, Building2, Server, Shield, Gem, ChevronLeft, ChevronRight } from 'lu
 import toast from 'react-hot-toast';
 import useOrgProfileStore, { EMPTY_PROFILE } from '../stores/orgProfileStore';
 import { INFRA_PRESET_LABELS } from '../utils/infraPresets';
-import { orgProfileSavedToast, orgProfileWizardNote } from '../utils/modeCopy';
+import { isServerMode } from '../storage/createStorage';
+import { orgProfileSavedToast } from '../utils/modeCopy';
 
 /**
  * Optional org-profile mini-wizard. Five questions, every one skippable,
@@ -177,7 +178,9 @@ const OrgProfileWizard = ({ onClose }) => {
             placeholder="e.g. customer PII database, payment platform — press Enter to add…"
           />
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300">
-            This profile — especially crown jewels and tooling {orgProfileWizardNote()} it is <strong>never included in share exports</strong> (tailored
+            This profile — especially crown jewels and tooling — is sensitive. {isServerMode()
+              ? 'It is saved on your organization’s server and is visible to every account, and it'
+              : 'It stays in this browser\'s local storage,'} is <strong>never included in share exports</strong> (tailored
             procedure text is swapped back to the community version), and rides complete backups
             only. Password-protect backups that carry it.
           </div>

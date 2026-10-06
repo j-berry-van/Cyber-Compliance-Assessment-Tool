@@ -45,7 +45,7 @@ Status: implemented (amended after implementation; see "Deviations from the orig
 - `POST /import`: one-time upload of a browser's data; only accepted against an empty workspace
 - `GET /auth/status` (is first-run setup needed) and `POST /auth/password` (change own password)
 - `GET /users` (any signed-in account, used to show editor names), admin only: `POST /users`, `PATCH /users/:id` (reset password, disable, link participant, last active admin protected)
-- The AI proxy (`/api/ai`) requires a session in multi-user mode, and the global 50-requests-per-15-minutes limiter now applies only to `/api/ai`. Without `MULTIUSER` the server remains an unauthenticated, localhost-style AI proxy
+- The AI proxy (`/api/ai`) requires a session in multi-user mode, and the global 50-requests-per-15-minutes limiter now applies only to `/api/ai`, where the AI routes' own `aiLimiter` (10 requests per 15 minutes per IP, shared by `/status` and `/claude`) is the tighter, effective limit. Without `MULTIUSER` the server remains an unauthenticated, localhost-style AI proxy
 
 **Attribution.** The server stamps `updated_by` from the session; clients cannot forge it.
 
@@ -135,11 +135,11 @@ What was built differs from the draft above in these ways; the sections above ha
 - `participantId` is an integer or a string (participant ids may be numbers or uuid strings).
 - Import is a blocking `AuthGate` step with an empty-workspace-only rule (a non-empty workspace never offers it), a raw backup offered first, an unsyncable-items list, and per-browser done/declined flags. It re-uses stores' `migrate()` via the `:state` record.
 - Seed loaders (requirements and assessments) are skipped in server mode when data already exists.
-- The AI proxy requires a session in multi-user mode, and the global 50/15 min limiter now applies only to `/api/ai`.
+- The AI proxy requires a session in multi-user mode, and the global 50/15 min limiter now applies only to `/api/ai`; the AI routes' `aiLimiter` (10 per 15 minutes per IP, status checks included) is the effective limit there.
 - Login and setup have their own limiter (20 per 15 minutes per IP).
 - `TRUST_PROXY=true` makes Express trust one proxy hop so `Secure` cookies and per-client rate limiting work behind a TLS-terminating proxy.
 - The organization profile syncs to the server in multi-user mode (accepted: it lives on the team's own server and is visible to every account); `cloudConsent` stays per-browser.
 - The "acting user" selector remains an honor system; the server-side `updated_by` account is the attribution that cannot be forged. `csf-last-account` clears the acting user when a different account signs in on the same browser unless that account is linked.
 - Account management is an Accounts page (not Settings → Users). There is no session secret (tokens are random and stored hashed), no `meta.schema_version` (SQLite `user_version` is used), and no client-version handshake.
 - Backup and quota wording is gated on `isServerMode()`: in server mode the app says data is saved to the server and backups are the administrator's responsibility.
-- `better-sqlite3` is pinned to `^11` because it must run on Node 18 (newer majors need Node 22+). The server tests use `node --test`, not Jest.
+- `better-sqlite3` is pinned to `^11` because it must run on Node 18 (newer majors drop Node 18 support). The server tests use `node --test`, not Jest.
