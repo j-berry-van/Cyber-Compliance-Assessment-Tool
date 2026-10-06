@@ -12,19 +12,27 @@ const writeLocal = (key, obj) => {
 export function createServerStateStorage(storeName, config) {
   const localKey = `${storeName}.local`;
   let snapshot = {};
+  let loaded = false;
+  let warned = false;
 
   return {
     async getItem() {
       await whenReady();
       const persisted = fromRecords(storeName, config, readCollection, readLocal(localKey));
-      if (!persisted) { snapshot = {}; return null; }
+      if (!persisted) { snapshot = {}; loaded = true; return null; }
       snapshot = toRecords(storeName, config, persisted).records;
-      setPersistedVersion(storeName, persisted.version);
+      if (typeof persisted.version === 'number') setPersistedVersion(storeName, persisted.version);
+      loaded = true;
       return JSON.stringify(persisted);
     },
 
     async setItem(_name, value) {
       await whenReady();
+      if (!loaded) {
+        // zustand does not gate setItem on hydration; diffing now would delete server records.
+        if (!warned) { warned = true; console.warn(`[sync] ignoring write to ${storeName} before it was loaded from the server`); }
+        return;
+      }
       const persisted = JSON.parse(value);
       const local = {};
       (config.localFields || []).forEach((f) => { if (f in persisted.state) local[f] = persisted.state[f]; });
@@ -36,7 +44,7 @@ export function createServerStateStorage(storeName, config) {
         : null);
       const { puts, deletes } = diffRecords(snapshot, records);
       snapshot = records;
-      setPersistedVersion(storeName, persisted.version);
+      if (typeof persisted.version === 'number') setPersistedVersion(storeName, persisted.version);
       if (puts.length || deletes.length) enqueue({ puts, deletes });
     },
 

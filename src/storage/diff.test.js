@@ -103,6 +103,16 @@ describe('fromRecords', () => {
   });
 });
 
+describe('fromRecords without a state record', () => {
+  it('returns the state with no version key', () => {
+    const { records } = toRecords('s', CONFIG, persisted([{ id: 'a' }]));
+    delete records[recordKey('s:state', 'state')];
+    const back = fromRecords('s', CONFIG, reader(records), {});
+    expect(back.state.items).toEqual([{ id: 'a' }]);
+    expect('version' in back).toBe(false);
+  });
+});
+
 describe('diffRecords', () => {
   it('finds adds, changes and deletes, and ignores unchanged records', () => {
     const prev = toRecords('s', CONFIG, persisted([{ id: 'a', n: 1 }, { id: 'b', n: 1 }, { id: 'c', n: 1 }])).records;

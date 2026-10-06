@@ -73,7 +73,8 @@ export function fromRecords(storeName, config, readCollection, local = {}) {
     items.forEach((data, id) => { if (!used.has(id)) list.push(data); });
     state[field] = list;
   });
-  return { state, version: stateRec?.version ?? 0 };
+  // No state record: omit `version` so zustand adopts the state instead of trying to migrate from 0.
+  return stateRec ? { state, version: stateRec.version ?? 0 } : { state };
 }
 
 export function diffRecords(prev, next) {

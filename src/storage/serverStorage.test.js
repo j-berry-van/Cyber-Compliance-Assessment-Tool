@@ -1,3 +1,5 @@
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { createServerStateStorage } from './serverStorage';
 import * as engine from './syncEngine';
 import { api } from './serverClient';
@@ -62,6 +64,7 @@ test('local-only fields are stored in <store>.local and never sent to the server
 test('getItem merges local fields from localStorage', async () => {
   localStorage.setItem('s.local', JSON.stringify({ selected: 'q' }));
   const s = createServerStateStorage('s', CONFIG);
+  await s.getItem('s');
   api.mockResolvedValue({ version: 1, rev: 1 });
   await s.setItem('s', wrap({ items: [{ id: 'a' }] }));
   localStorage.setItem('s.local', JSON.stringify({ selected: 'q' }));
@@ -131,4 +134,60 @@ test('a remote change is visible to the next getItem (rehydrate path)', async ()
   await engine.pollNow();
   const back = JSON.parse(await s.getItem('s'));
   expect(back.state.items).toEqual([{ id: 'z' }]);
+});
+
+const seedItemsOnly = async () => {
+  api.mockResolvedValueOnce({
+    cursor: 3,
+    records: [
+      { collection: 's.items', id: 'x', data: { id: 'x' }, version: 1, deleted: false },
+      { collection: 's.items', id: 'y', data: { id: 'y' }, version: 1, deleted: false }
+    ]
+  });
+  await engine.pollNow();
+};
+
+test('with item records but no :state record, getItem omits version and a real store adopts the items without deleting them', async () => {
+  await seedItemsOnly();
+  const storage = createServerStateStorage('s', CONFIG);
+  const parsed = JSON.parse(await storage.getItem('s'));
+  expect(parsed.state.items.map((i) => i.id)).toEqual(['x', 'y']);
+  expect('version' in parsed).toBe(false);
+
+  const useStore = create(persist(
+    (set) => ({ items: [], add: (item) => set((st) => ({ items: [...st.items, item] })) }),
+    { name: 's', version: 1, storage: createJSONStorage(() => createServerStateStorage('s', CONFIG)) }
+  ));
+  await advance(0);
+  for (let i = 0; i < 30; i += 1) await Promise.resolve();
+  expect(useStore.getState().items.map((i) => i.id)).toEqual(['x', 'y']);
+
+  api.mockClear();
+  api.mockResolvedValue({ version: 2, rev: 2 });
+  useStore.getState().add({ id: 'new' });
+  await advance(0); // let the async setItem enqueue before the debounce timer runs
+  await advance(500);
+  const calls = api.mock.calls.map((c) => `${c[0]} ${c[1]}`);
+  expect(calls).toContain('PUT /records/s.items/new');
+  expect(calls.filter((c) => c.startsWith('DELETE'))).toEqual([]);
+});
+
+test('setItem before the first getItem completes sends nothing', async () => {
+  await seedItemsOnly();
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  const storage = createServerStateStorage('s', CONFIG);
+  api.mockClear();
+  api.mockResolvedValue({ version: 1, rev: 1 });
+  await storage.setItem('s', wrap({ items: [{ id: 'default' }] }));
+  await advance(1000);
+  expect(api).not.toHaveBeenCalled();
+  expect(warn).toHaveBeenCalledTimes(1);
+
+  await storage.getItem('s');
+  await storage.setItem('s', wrap({ items: [{ id: 'x' }, { id: 'y' }, { id: 'z' }] }));
+  await advance(500);
+  const calls = api.mock.calls.map((c) => `${c[0]} ${c[1]}`);
+  expect(calls).toContain('PUT /records/s.items/z');
+  expect(calls.filter((c) => c.startsWith('DELETE'))).toEqual([]);
+  warn.mockRestore();
 });
