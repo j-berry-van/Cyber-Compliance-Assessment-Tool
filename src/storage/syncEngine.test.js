@@ -114,13 +114,13 @@ test('network failure keeps the outbox, persists it, and retries with backoff', 
   engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: 1 }], deletes: [] });
   await advance(500);
   expect(engine.useSyncStatus.getState().state).toBe('offline');
-  expect(JSON.parse(localStorage.getItem('csf-sync-outbox'))).toHaveLength(1);
+  expect(JSON.parse(localStorage.getItem('csf-sync-outbox:anonymous'))).toHaveLength(1);
   await advance(2500);
   expect(engine.useSyncStatus.getState().pending).toBe(0);
 });
 
 test('a persisted outbox is replayed after bootstrap', async () => {
-  localStorage.setItem('csf-sync-outbox', JSON.stringify([{ collection: 'c', id: 'a', op: 'put', data: { n: 1 }, baseVersion: 0 }]));
+  localStorage.setItem('csf-sync-outbox:anonymous', JSON.stringify([{ collection: 'c', id: 'a', op: 'put', data: { n: 1 }, baseVersion: 0 }]));
   api.mockResolvedValueOnce({ cursor: 1, records: [] });
   await engine.bootstrap();
   api.mockResolvedValue({ version: 1, rev: 2 });
@@ -192,7 +192,7 @@ test('a 401 keeps the outbox and does not retry', async () => {
   engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: 1 }], deletes: [] });
   await advance(500);
   expect(engine.useSyncStatus.getState().pending).toBe(1);
-  expect(JSON.parse(localStorage.getItem('csf-sync-outbox'))).toHaveLength(1);
+  expect(JSON.parse(localStorage.getItem('csf-sync-outbox:anonymous'))).toHaveLength(1);
   await advance(120000);
   expect(api).toHaveBeenCalledTimes(2);
 });
@@ -227,4 +227,112 @@ test('start registers a poll interval and focus listener; stop removes them', as
   expect(api).toHaveBeenCalledTimes(2);
   add.mockRestore();
   remove.mockRestore();
+});
+
+const deferred = () => { let resolve; let reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
+const conflict409 = (data, version) => new ApiError(409, { error: 'conflict', current: { data, version, deleted: false } });
+
+test('start() after bootstrap does not kill the replay of a persisted outbox', async () => {
+  localStorage.setItem('csf-sync-outbox:anonymous', JSON.stringify([{ collection: 'c', id: 'a', op: 'put', data: { n: 1 }, baseVersion: 0 }]));
+  api.mockResolvedValueOnce({ cursor: 1, records: [] });
+  await engine.bootstrap();
+  engine.start();
+  api.mockResolvedValue({ version: 1, rev: 2 });
+  await advance(10);
+  expect(api.mock.calls[1][0]).toBe('PUT');
+});
+
+test('a late PUT response does not lower a newer cached version', async () => {
+  await boot([rec('c', 'a', { n: 1 }, 1)], 5);
+  const d = deferred();
+  api.mockImplementationOnce(() => d.promise);
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 'mine' } }], deletes: [] });
+  await advance(500);
+  api.mockResolvedValueOnce({ cursor: 9, records: [rec('c', 'a', { n: 'teammate' }, 5)] });
+  await engine.pollNow();
+  d.resolve({ version: 2, rev: 7 });
+  await advance(0);
+  expect(engine.getEntries('c')[0].version).toBe(5);
+  expect(engine.getEntries('c')[0].data).toEqual({ n: 'teammate' });
+});
+
+test('a late 409 does not lower a newer cached version', async () => {
+  await boot([rec('c', 'a', { n: 1 }, 1)], 5);
+  const d = deferred();
+  api.mockImplementationOnce(() => d.promise);
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 'mine' } }], deletes: [] });
+  await advance(500);
+  api.mockResolvedValueOnce({ cursor: 9, records: [rec('c', 'a', { n: 'newest' }, 5)] });
+  await engine.pollNow();
+  d.reject(conflict409({ n: 'stale' }, 2));
+  await advance(0);
+  expect(engine.getEntries('c')[0].version).toBe(5);
+  expect(engine.useSyncStatus.getState().conflicts[0].theirs).toEqual({ n: 'newest' });
+});
+
+test('conflicts survive a reload and keep mine, including later edits', async () => {
+  await boot([rec('c', 'a', { n: 1 }, 1)]);
+  api.mockRejectedValueOnce(conflict409({ n: 'theirs' }, 2));
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 'mine' } }], deletes: [] });
+  await advance(500);
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 'mine later' } }], deletes: [] });
+  engine.reset();
+  await boot([rec('c', 'a', { n: 'theirs' }, 2)]);
+  const { conflicts } = engine.useSyncStatus.getState();
+  expect(conflicts).toHaveLength(1);
+  expect(conflicts[0].mine).toEqual({ n: 'mine later' });
+  expect(conflicts[0].theirs).toEqual({ n: 'theirs' });
+  engine.resolveConflict(conflicts[0].key, 'theirs');
+  engine.reset();
+  await boot([rec('c', 'a', { n: 'theirs' }, 2)]);
+  expect(engine.useSyncStatus.getState().conflicts).toHaveLength(0);
+});
+
+test('a restored conflict refreshes theirs when the server has moved on', async () => {
+  await boot([rec('c', 'a', { n: 1 }, 1)]);
+  api.mockRejectedValueOnce(conflict409({ n: 'theirs' }, 2));
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 'mine' } }], deletes: [] });
+  await advance(500);
+  engine.reset();
+  await boot([rec('c', 'a', { n: 'newer' }, 4)]);
+  const c = engine.useSyncStatus.getState().conflicts[0];
+  expect(c.theirs).toEqual({ n: 'newer' });
+});
+
+test('a permanently rejected record is dropped and does not block the rest', async () => {
+  await boot();
+  api.mockRejectedValueOnce(new ApiError(400, { error: 'bad' })).mockResolvedValue({ version: 1, rev: 1 });
+  engine.enqueue({ puts: [{ collection: 'c', id: 'bad', data: 1 }, { collection: 'c', id: 'good', data: 2 }], deletes: [] });
+  await advance(500);
+  expect(api).toHaveBeenCalledTimes(3);
+  expect(engine.useSyncStatus.getState().pending).toBe(0);
+  expect(engine.useSyncStatus.getState().error).toMatch(/1 change\(s\) could not be saved/);
+  expect(engine.getEntries('c').map((e) => e.id)).toEqual(['good']);
+});
+
+test('a 5xx stays queued and is retried', async () => {
+  await boot();
+  api.mockRejectedValueOnce(new ApiError(503, { error: 'down' })).mockResolvedValue({ version: 1, rev: 1 });
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: 1 }], deletes: [] });
+  await advance(500);
+  expect(engine.useSyncStatus.getState().pending).toBe(1);
+  expect(engine.useSyncStatus.getState().error).toBeNull();
+  await advance(2500);
+  expect(engine.useSyncStatus.getState().pending).toBe(0);
+});
+
+test('the outbox is per user', async () => {
+  const stored = [{ collection: 'c', id: 'a', op: 'put', data: { n: 1 }, baseVersion: 0 }];
+  localStorage.setItem('csf-sync-outbox:1', JSON.stringify(stored));
+  api.mockResolvedValueOnce({ cursor: 1, records: [] });
+  await engine.bootstrap(2);
+  await advance(1000);
+  expect(api).toHaveBeenCalledTimes(1);
+  expect(engine.useSyncStatus.getState().pending).toBe(0);
+  engine.reset();
+  api.mockResolvedValueOnce({ cursor: 1, records: [] });
+  await engine.bootstrap(1);
+  api.mockResolvedValue({ version: 1, rev: 2 });
+  await advance(10);
+  expect(api.mock.calls[api.mock.calls.length - 1][0]).toBe('PUT');
 });

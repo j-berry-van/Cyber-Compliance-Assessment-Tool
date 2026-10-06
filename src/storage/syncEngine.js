@@ -2,11 +2,13 @@ import { create } from 'zustand';
 import { api, ApiError } from './serverClient';
 import { recordKey, isStateRecord, storeNameOf } from './diff';
 
-const OUTBOX_KEY = 'csf-sync-outbox';
+let userId = 'anonymous';
+const outboxKey = () => `csf-sync-outbox:${userId}`;
+const conflictsKey = () => `csf-sync-conflicts:${userId}`;
 let cfg = { debounceMs: 500, pollMs: 20000 };
 export const configureEngine = (next) => { cfg = { ...cfg, ...next }; };
 
-export const useSyncStatus = create(() => ({ state: 'idle', pending: 0, conflicts: [], lastSaved: null }));
+export const useSyncStatus = create(() => ({ state: 'idle', pending: 0, conflicts: [], lastSaved: null, error: null }));
 
 const listeners = new Set();
 export const onRemoteChange = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
@@ -33,11 +35,20 @@ const entryOf = (r) => ({
 });
 
 const persistOutbox = () => {
-  try { localStorage.setItem(OUTBOX_KEY, JSON.stringify([...outbox.values()])); } catch { /* quota: keep in memory */ }
+  try { localStorage.setItem(outboxKey(), JSON.stringify([...outbox.values()])); } catch { /* quota: keep in memory */ }
 };
 const loadOutbox = () => {
   try {
-    return new Map(JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]').map((o) => [recordKey(o.collection, o.id), o]));
+    return new Map(JSON.parse(localStorage.getItem(outboxKey()) || '[]').map((o) => [recordKey(o.collection, o.id), o]));
+  } catch { return new Map(); }
+};
+
+const persistConflicts = () => {
+  try { localStorage.setItem(conflictsKey(), JSON.stringify([...conflicts.values()])); } catch { /* quota: keep in memory */ }
+};
+const loadConflicts = () => {
+  try {
+    return new Map(JSON.parse(localStorage.getItem(conflictsKey()) || '[]').map((c) => [c.key, c]));
   } catch { return new Map(); }
 };
 
@@ -51,12 +62,21 @@ const refreshStatus = (patch = {}) => {
 
 const emit = (collections) => listeners.forEach((fn) => fn(collections));
 
-export async function bootstrap() {
+export async function bootstrap(forUser = 'anonymous') {
+  userId = String(forUser ?? 'anonymous');
   const res = await api('GET', '/records?since=0');
   cache = new Map(res.records.map((r) => [recordKey(r.collection, r.id), entryOf(r)]));
   cursor = res.cursor;
   outbox = loadOutbox();
-  conflicts = new Map();
+  conflicts = loadConflicts();
+  conflicts.forEach((c, key) => {
+    const have = cache.get(key);
+    if (have && have.version > (c.theirsVersion ?? 0)) {
+      c.theirs = have.deleted ? null : have.data;
+      c.theirsVersion = have.version;
+    }
+  });
+  persistConflicts();
   refreshStatus({ state: 'idle' });
   markReady();
   if (outbox.size) scheduleFlush(0);
@@ -84,7 +104,7 @@ export function getEntries(collection) {
 
 const queue = (collection, id, op, data) => {
   const key = recordKey(collection, id);
-  if (conflicts.has(key)) { conflicts.get(key).mine = op === 'put' ? data : null; return; }
+  if (conflicts.has(key)) { conflicts.get(key).mine = op === 'put' ? data : null; persistConflicts(); return; }
   const prev = outbox.get(key);
   const baseVersion = prev ? prev.baseVersion : (cache.get(key)?.version ?? 0);
   outbox.set(key, { collection, id, op, data: op === 'put' ? data : null, baseVersion });
@@ -107,6 +127,7 @@ export async function flushNow() {
   if (flushing) { rerun = true; return; }
   flushing = true;
   let failed = false;
+  let rejected = 0;
   refreshStatus({ state: 'saving' });
   try {
     for (const [key, op] of [...outbox]) {
@@ -116,17 +137,29 @@ export async function flushNow() {
         const result = op.op === 'put'
           ? await api('PUT', path, { data: op.data, baseVersion: op.baseVersion, force: isStateRecord(op.collection) })
           : await api('DELETE', path, { baseVersion: op.baseVersion });
-        cache.set(key, {
-          collection: op.collection, id: op.id, data: op.data, version: result.version,
-          deleted: op.op === 'delete', updatedBy: null, updatedAt: null
-        });
+        if (!(cache.get(key)?.version >= result.version)) {
+          cache.set(key, {
+            collection: op.collection, id: op.id, data: op.data, version: result.version,
+            deleted: op.op === 'delete', updatedBy: null, updatedAt: null
+          });
+        }
         if (outbox.get(key) === op) outbox.delete(key);
         else if (outbox.get(key)) outbox.get(key).baseVersion = result.version;
       } catch (e) {
+        const permanent = e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 401 && e.status !== 409;
+        if (permanent) {
+          rejected += 1;
+          if (outbox.get(key) === op) outbox.delete(key);
+          continue;
+        }
         if (!(e instanceof ApiError && e.status === 409)) throw e;
         const newest = outbox.get(key) || op;
-        const theirs = e.body?.current;
-        if (theirs) cache.set(key, entryOf({ collection: op.collection, id: op.id, ...theirs }));
+        let theirs = e.body?.current;
+        if (theirs) {
+          const have = cache.get(key);
+          if (have && have.version > theirs.version) theirs = have;
+          else cache.set(key, entryOf({ collection: op.collection, id: op.id, ...theirs }));
+        }
         conflicts.set(key, {
           key, collection: op.collection, id: op.id,
           mine: newest.op === 'put' ? newest.data : null,
@@ -134,10 +167,15 @@ export async function flushNow() {
           theirsVersion: theirs?.version ?? 0
         });
         outbox.delete(key);
+        persistConflicts();
       }
     }
     backoff = 0;
-    refreshStatus({ state: 'idle', lastSaved: Date.now() });
+    refreshStatus({
+      state: 'idle',
+      lastSaved: Date.now(),
+      ...(rejected ? { error: `${rejected} change(s) could not be saved (rejected by the server)` } : {})
+    });
   } catch (e) {
     failed = true;
     if (e instanceof ApiError && e.status === 401) {
@@ -177,6 +215,7 @@ export function resolveConflict(key, choice) {
   const c = conflicts.get(key);
   if (!c) return;
   conflicts.delete(key);
+  persistConflicts();
   if (choice === 'mine') {
     outbox.set(key, { collection: c.collection, id: c.id, op: c.mine === null ? 'delete' : 'put', data: c.mine, baseVersion: c.theirsVersion });
     persistOutbox();
@@ -207,16 +246,16 @@ export function start() {
 
 export function stop() {
   clearInterval(pollTimer);
-  clearTimeout(flushTimer);
   if (focusHandler && typeof window !== 'undefined') window.removeEventListener('focus', focusHandler);
   focusHandler = null;
 }
 
 export function reset() {
   stop();
+  clearTimeout(flushTimer);
   cache = new Map(); outbox = new Map(); conflicts = new Map();
   cursor = 0; flushing = false; rerun = false; backoff = 0;
   listeners.clear();
   newReady();
-  useSyncStatus.setState({ state: 'idle', pending: 0, conflicts: [], lastSaved: null });
+  useSyncStatus.setState({ state: 'idle', pending: 0, conflicts: [], lastSaved: null, error: null });
 }
