@@ -84,6 +84,25 @@ test('participant select shows the current link and PATCHes null for none', asyn
   expect(api).toHaveBeenCalledWith('PATCH', '/users/2', { participantId: null });
 });
 
+test('participant select sends the original id type (number stays number, string stays string)', async () => {
+  useUserStore.setState({ users: [{ id: 7, name: 'Pat' }, { id: 'abc-123', name: 'Uma' }] });
+  render(<Accounts />);
+  await screen.findByText('sam');
+  const select = screen.getByLabelText('Participant for sam');
+  await choose(select, 'abc-123');
+  expect(api).toHaveBeenCalledWith('PATCH', '/users/2', { participantId: 'abc-123' });
+  await choose(select, '7');
+  expect(api).toHaveBeenCalledWith('PATCH', '/users/2', { participantId: 7 });
+});
+
+test('a string participant link is shown as selected', async () => {
+  useUserStore.setState({ users: [{ id: 'abc-123', name: 'Uma' }] });
+  api.mockImplementation(async (m, p) => (m === 'GET' ? [{ ...users[1], participantId: 'abc-123' }] : { ok: true }));
+  render(<Accounts />);
+  await screen.findByText('sam');
+  expect(screen.getByLabelText('Participant for sam')).toHaveValue('abc-123');
+});
+
 test('works with an empty participants list', async () => {
   useUserStore.setState({ users: [] });
   render(<Accounts />);

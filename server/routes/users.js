@@ -8,7 +8,8 @@ const shape = (u) => ({
 });
 
 const trimmed = (v) => (typeof v === 'string' ? v.trim() : '');
-const validParticipantId = (v) => v === null || Number.isInteger(v);
+const validParticipantId = (v) =>
+  v === null || Number.isInteger(v) || (typeof v === 'string' && v.trim().length > 0 && v.length <= 100);
 
 export default function userRoutes(db) {
   const r = Router();
@@ -26,7 +27,7 @@ export default function userRoutes(db) {
       return res.status(400).json({ error: `username, displayName and a password of at least ${MIN_PASSWORD_LENGTH} characters are required` });
     }
     if (!validParticipantId(participantId)) {
-      return res.status(400).json({ error: 'participantId must be an integer or null' });
+      return res.status(400).json({ error: 'participantId must be an integer, a non-empty string (max 100 characters) or null' });
     }
     if (typeof isAdmin !== 'boolean') {
       return res.status(400).json({ error: 'isAdmin must be a boolean' });
@@ -57,7 +58,7 @@ export default function userRoutes(db) {
       return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
     if (participantId !== undefined && !validParticipantId(participantId)) {
-      return res.status(400).json({ error: 'participantId must be an integer or null' });
+      return res.status(400).json({ error: 'participantId must be an integer, a non-empty string (max 100 characters) or null' });
     }
 
     for (const [k, v] of [['isAdmin', isAdmin], ['disabled', disabled]]) {

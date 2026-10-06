@@ -67,6 +67,27 @@ test('participantId can be linked and is returned by /me', async () => {
   await admin.patch(`/api/users/${me.body.id}`).set(JSON_HEADERS).send({ participantId: 3 }).expect(200);
   const again = await admin.get('/api/auth/me').expect(200);
   assert.equal(again.body.participantId, 3);
+
+  // string ids (UI-created participants) round-trip; invalid values rejected
+  const created = await admin.post('/api/users').set(JSON_HEADERS).send({ ...newUser, participantId: 'abc-123' }).expect(201);
+  assert.equal(created.body.participantId, 'abc-123');
+  const url = `/api/users/${created.body.id}`;
+  await admin.patch(url).set(JSON_HEADERS).send({ participantId: 'def-456' }).expect(200);
+  const list = await admin.get('/api/users').expect(200);
+  assert.equal(list.body.find((u) => u.id === created.body.id).participantId, 'def-456');
+  
+  await admin.patch(`/api/users/${me.body.id}`).set(JSON_HEADERS).send({ participantId: 'self-id' }).expect(200);
+  assert.equal((await admin.get('/api/auth/me').expect(200)).body.participantId, 'self-id');
+  await admin.patch(url).set(JSON_HEADERS).send({ participantId: null }).expect(200);
+  const after = await admin.get('/api/users').expect(200);
+  assert.equal(after.body.find((u) => u.id === created.body.id).participantId, null);
+
+  // invalid values (kept in this test: login limiter is shared per process)
+  for (const bad of [1.5, true, '', '   ', {}, [], 'x'.repeat(101)]) {
+    await admin.patch(url).set(JSON_HEADERS).send({ participantId: bad }).expect(400);
+    await admin.post('/api/users').set(JSON_HEADERS).send({ ...newUser, username: 'other', participantId: bad }).expect(400);
+  }
+  await admin.patch(url).set(JSON_HEADERS).send({ participantId: 'x'.repeat(100) }).expect(200);
 });
 
 test('POST rejects blank or whitespace-only username/displayName and short passwords', async () => {
@@ -85,7 +106,7 @@ test('PATCH rejects whitespace-only displayName, short password and bad particip
   const url = `/api/users/${created.body.id}`;
   await admin.patch(url).set(JSON_HEADERS).send({ displayName: '   ' }).expect(400);
   await admin.patch(url).set(JSON_HEADERS).send({ password: 'short' }).expect(400);
-  await admin.patch(url).set(JSON_HEADERS).send({ participantId: 'abc' }).expect(400);
+  await admin.patch(url).set(JSON_HEADERS).send({ participantId: 1.5 }).expect(400);
   await admin.patch('/api/users/9999').set(JSON_HEADERS).send({ displayName: 'x' }).expect(404);
   await admin.patch(url).set(JSON_HEADERS).send({ displayName: '  Samuel ' }).expect(200);
   const list = await admin.get('/api/users').expect(200);

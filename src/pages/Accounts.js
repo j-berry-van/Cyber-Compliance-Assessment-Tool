@@ -59,6 +59,13 @@ export default function Accounts() {
   }, [isAdmin]);
   useEffect(() => { load(); }, [load]);
 
+  // Send the participant's original id (number or uuid string) unchanged.
+  const participantIdFor = (value) => {
+    if (value === '') return null;
+    const p = participants.find((x) => String(x.id) === value);
+    return p ? p.id : null;
+  };
+
   const patch = async (id, body) => {
     try { await api('PATCH', `/users/${id}`, body); await load(); }
     catch (e) { toast.error(e?.body?.error === 'last-admin' ? 'There must be at least one active administrator.' : 'Update failed.'); }
@@ -100,7 +107,7 @@ export default function Accounts() {
                   <td>{u.username}</td>
                   <td>{u.displayName}{u.isAdmin ? ' (admin)' : ''}</td>
                   <td>
-                    <select aria-label={`Participant for ${u.username}`} value={u.participantId ?? ''} onChange={(e) => patch(u.id, { participantId: e.target.value === '' ? null : Number(e.target.value) })} className="border rounded dark:bg-gray-700">
+                    <select aria-label={`Participant for ${u.username}`} value={String(u.participantId ?? '')} onChange={(e) => patch(u.id, { participantId: participantIdFor(e.target.value) })} className="border rounded dark:bg-gray-700">
                       <option value="">— none —</option>
                       {participants.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
