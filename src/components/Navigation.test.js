@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Navigation from './Navigation';
@@ -24,4 +24,15 @@ test('server mode shows the display name and signs out', () => {
   expect(screen.getByText(/Signed in as Ada/)).toBeInTheDocument();
   userEvent.click(screen.getByRole('button', { name: /sign out/i }));
   expect(logout).toHaveBeenCalled();
+});
+
+test('server mode renders exactly one sign-out button even with the mobile drawer open', () => {
+  process.env.REACT_APP_SERVER_MODE = 'true';
+  useAuthStore.setState({ user: { id: 1, displayName: 'Ada' }, logout: jest.fn() });
+  renderNav();
+  userEvent.click(screen.getByRole('button', { name: /open navigation/i }));
+  expect(screen.getByRole('menu')).toBeInTheDocument();
+  // one in the rail (CSS-hidden on narrow screens) and exactly one in the drawer
+  expect(within(screen.getByRole('menu')).getAllByRole('button', { name: /sign out/i })).toHaveLength(1);
+  expect(screen.getAllByRole('button', { name: /sign out/i })).toHaveLength(2);
 });

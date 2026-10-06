@@ -1,7 +1,12 @@
 import React from 'react';
 import { useSyncStatus, resolveConflict } from '../storage/syncEngine';
 
-const preview = (v) => (v === null ? '(deleted)' : JSON.stringify(v, null, 2).slice(0, 600));
+const preview = (v) => {
+  if (v == null) return '(deleted)';
+  const text = JSON.stringify(v, null, 2);
+  if (text === undefined) return '(deleted)';
+  return text.length > 600 ? `${text.slice(0, 600)}…` : text;
+};
 
 export default function SyncConflictDialog() {
   const conflicts = useSyncStatus((s) => s.conflicts);

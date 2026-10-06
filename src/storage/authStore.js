@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import toast from 'react-hot-toast';
 import { api, setUnauthorizedHandler } from './serverClient';
 import { bootstrap, start, stop } from './syncEngine';
 import { wireRemoteRehydration, rehydrateAll } from './rehydrateOnRemote';
@@ -75,7 +76,15 @@ const useAuthStore = create((set) => ({
   },
 
   async logout() {
-    try { await api('POST', '/auth/logout', {}); } catch { /* ignore */ }
+    try {
+      await api('POST', '/auth/logout', {});
+    } catch {
+      // Reloading now would let the still-valid cookie sign the user straight back in.
+      const message = 'Could not sign out. Check your connection and try again.';
+      set({ error: message });
+      toast.error(message);
+      return;
+    }
     window.location.reload();
   }
 }));

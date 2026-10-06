@@ -230,7 +230,6 @@ const Navigation = () => {
             </nav>
             <ActingUserSelect />
             <SessionControls />
-        <SessionControls />
           </div>
         </div>
       )}
