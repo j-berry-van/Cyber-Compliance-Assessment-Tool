@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import aiRoutes from './routes/ai.js';
+import authRoutes from './routes/auth.js';
+import { requireJson, sessionMiddleware, requireAuth } from './middlewares/auth.js';
 import { apiLimiter } from './utils/rateLimiter.js';
 
 export function createApp({ db = null, staticDir = null } = {}) {
@@ -36,7 +38,12 @@ export function createApp({ db = null, staticDir = null } = {}) {
   app.use(cookieParser());
 
   app.locals.db = db;
-  // Later tasks mount auth/users/records/import routers here when db is set.
+  if (db) {
+    app.use('/api', requireJson, sessionMiddleware(db));
+    app.use('/api/auth', authRoutes(db));
+    // users, records and import routers are mounted below by later tasks
+    app.use('/api/ai', requireAuth); // in multi-user mode the AI proxy requires a session
+  }
   app.use('/api/ai', apiLimiter, aiRoutes);
 
   if (staticDir) {

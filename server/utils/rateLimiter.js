@@ -54,4 +54,13 @@ export const aiLimiter = rateLimit({
 });
 
 // Export default for backwards compatibility
+// Login attempts: 20 per 15 minutes per IP (a shared office IP must not lock the team out).
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many login attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 export default apiLimiter;
