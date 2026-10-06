@@ -13,6 +13,7 @@ import AuthGate from './components/AuthGate';
 import { isServerMode } from './storage/createStorage';
 import { shouldLoadSeed } from './storage/seedGuard';
 import SyncConflictDialog from './components/SyncConflictDialog';
+import ImportLocalDataPrompt from './components/ImportLocalDataPrompt';
 import { SkeletonTable } from './components/SkeletonLoader';
 
 // Hooks
@@ -165,6 +166,8 @@ const AppContent = () => {
 
     {/* First Visit Warning Modal - Rendered outside main container */}
     <FirstVisitWarning />
+
+    {isServerMode() && <ImportLocalDataPrompt />}
     
     {/* Backup Reminder Notification - Rendered outside main container */}
     {showBackupReminder && (
