@@ -3,6 +3,9 @@ import { hashPassword, verifyPassword, MIN_PASSWORD_LENGTH } from '../utils/pass
 import { createSession, destroySession, requireAuth } from '../middlewares/auth.js';
 import { loginLimiter } from '../utils/rateLimiter.js';
 
+// Verified against when the username is unknown so both paths cost exactly one scrypt operation.
+const DUMMY_HASH = hashPassword('dummy-password');
+
 const publicUser = (u) => ({
   id: u.id, username: u.username, displayName: u.displayName, isAdmin: u.isAdmin, participantId: u.participantId ?? null
 });
@@ -31,8 +34,10 @@ export default function authRoutes(db) {
   r.post('/login', loginLimiter, (req, res) => {
     const { username, password } = req.body || {};
     const row = db.prepare('SELECT * FROM users WHERE username = ? AND disabled = 0').get(String(username || ''));
-    // Verify against a dummy hash when the user is missing so timing does not reveal valid usernames.
-    const ok = row ? verifyPassword(String(password || ''), row.password_hash) : (verifyPassword('x', hashPassword('y')), false);
+    // Unknown user: run one verify against DUMMY_HASH (result discarded) so timing matches a known user's single verify.
+    let ok = false;
+    if (row) ok = verifyPassword(String(password || ''), row.password_hash);
+    else verifyPassword(String(password || ''), DUMMY_HASH);
     if (!ok) return res.status(401).json({ error: 'invalid-credentials' });
     createSession(db, row.id, req, res);
     return res.json({ ok: true });
