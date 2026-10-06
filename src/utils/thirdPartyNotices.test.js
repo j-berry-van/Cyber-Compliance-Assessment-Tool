@@ -199,3 +199,11 @@ describe('licensed record rendering — verbatim discipline', () => {
     expect(out).toContain(`> ${notice}`);
   });
 });
+
+describe('server dependencies section', () => {
+  test('lists the multi-user server packages with their licenses', () => {
+    const out = noticesMarkdown(bankWith({}));
+    ['better-sqlite3', 'cookie-parser', 'supertest'].forEach((name) => expect(out).toContain(`**${name}**`));
+    expect(out).toMatch(/\*\*better-sqlite3\*\* [\d.]+ — MIT/);
+  });
+});
