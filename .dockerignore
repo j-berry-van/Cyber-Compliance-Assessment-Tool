@@ -1,0 +1,12 @@
+node_modules
+server/node_modules
+build
+.git
+server/data
+.env
+.env.*
+server/.env
+server/.env.*
+private-data
+_future
+src-tauri/target
