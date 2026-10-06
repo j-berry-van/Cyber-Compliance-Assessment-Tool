@@ -10,6 +10,8 @@ import BackupReminder from './components/BackupReminder';
 import Toolbar from './components/Toolbar';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';
 import AuthGate from './components/AuthGate';
+import { isServerMode } from './storage/createStorage';
+import { shouldLoadSeed } from './storage/seedGuard';
 import SyncConflictDialog from './components/SyncConflictDialog';
 import { SkeletonTable } from './components/SkeletonLoader';
 
@@ -72,9 +74,14 @@ const AppContent = () => {
     // Fix email addresses using store directly
     useUserStore.getState().fixEmailAddresses();
     // Load requirements data from the seed CSV
-    loadRequirements();
+    // Server mode: the stores are shared, so only seed an empty workspace.
+    if (shouldLoadSeed({ serverMode: isServerMode(), existingCount: useRequirementsStore.getState().requirements?.length })) {
+      loadRequirements();
+    }
     // Load assessments data from the seed CSV
-    loadAssessments();
+    if (shouldLoadSeed({ serverMode: isServerMode(), existingCount: useAssessmentsStore.getState().assessments?.length })) {
+      loadAssessments();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
   

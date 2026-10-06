@@ -12,7 +12,7 @@ export const STORE_CONFIGS = {
   'csf-evaluations-storage': { collections: { evaluations: 'id' } },
   'csf-frameworks-storage': { collections: { frameworks: 'id' } },
   'csf-requirements-storage': { collections: { requirements: (r) => `${r.frameworkId}::${r.id}` } },
-  'csf-metrics-storage': { collections: { metrics: 'id' } },
+  'csf-metrics-storage': { collections: { metrics: (m) => `${m.catalogSlug}::${m.id}` } },
   'csf-inventory-storage': { collections: { systems: 'id' } },
   // cloudConsent is a per-browser opt-in to cloud AI; the profile itself syncs.
   'csf-org-profile-storage': { localFields: ['cloudConsent'] },

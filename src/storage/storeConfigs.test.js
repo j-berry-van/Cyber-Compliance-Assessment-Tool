@@ -46,3 +46,19 @@ Object.entries(loaders).forEach(([name, load]) => {
     expect(problems).toEqual([]);
   });
 });
+
+describe('metrics sync key', () => {
+  const cfg = STORE_CONFIGS['csf-metrics-storage'];
+  const run = (metrics) => toRecords('csf-metrics-storage', cfg, { state: { metrics }, version: 1 });
+
+  test('same id in two catalogues is two distinct records', () => {
+    const { records, problems } = run([{ id: 'M1', catalogSlug: 'a' }, { id: 'M1', catalogSlug: 'b' }]);
+    expect(problems).toEqual([]);
+    expect(Object.values(records).filter((r) => r.id.includes('::')).map((r) => r.id).sort()).toEqual(['a::M1', 'b::M1']);
+  });
+
+  test('same slug and id twice is a problem', () => {
+    const { problems } = run([{ id: 'M1', catalogSlug: 'a' }, { id: 'M1', catalogSlug: 'a' }]);
+    expect(problems).toHaveLength(1);
+  });
+});
