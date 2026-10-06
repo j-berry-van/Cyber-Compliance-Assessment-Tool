@@ -191,3 +191,48 @@ test('setItem before the first getItem completes sends nothing', async () => {
   expect(calls.filter((c) => c.startsWith('DELETE'))).toEqual([]);
   warn.mockRestore();
 });
+
+describe('a version mismatch the store cannot migrate', () => {
+  const { registerStoreForRehydrate } = require('./rehydrateOnRemote');
+  const seeded = async (storeVersion, migrate) => {
+    api.mockReset();
+    engine.reset();
+    api.mockResolvedValueOnce({ cursor: 3, records: [
+      { collection: 'mm.items', id: 'a', data: { id: 'a', n: 1 }, version: 1, deleted: false },
+      { collection: 'mm.items', id: 'b', data: { id: 'b', n: 2 }, version: 1, deleted: false },
+      { collection: 'mm:state', id: 'state', data: { version: 1, shared: {}, order: {} }, version: 1, deleted: false }
+    ] });
+    await engine.bootstrap();
+    const useStore = create(persist(() => ({ items: [{ id: 'default', n: 0 }] }), {
+      name: 'mm',
+      version: storeVersion,
+      migrate,
+      storage: createJSONStorage(() => createServerStateStorage('mm', CONFIG))
+    }));
+    registerStoreForRehydrate(useStore);
+    await useStore.persist.rehydrate();
+    api.mockClear();
+    return useStore;
+  };
+
+  test('without migrate, nothing is written (no mass delete of teammates\' records) and a problem is shown', async () => {
+    const useStore = await seeded(2, undefined);
+    expect(useStore.getState().items.map((i) => i.id)).toEqual(['default']); // zustand discarded the server data
+    useStore.setState({ items: [{ id: 'default', n: 5 }] });
+    await advance(2000);
+    expect(api).not.toHaveBeenCalled();
+    expect(engine.useSyncStatus.getState().pending).toBe(0);
+    expect(engine.useSyncStatus.getState().error).toMatch(/different app version/);
+  });
+
+  test('with migrate, the migrated data is adopted and edits are saved as normal', async () => {
+    const useStore = await seeded(2, (s) => s);
+    expect(useStore.getState().items.map((i) => i.id)).toEqual(['a', 'b']);
+    api.mockResolvedValue({ version: 2, rev: 4 });
+    useStore.setState({ items: [{ id: 'a', n: 1 }, { id: 'b', n: 99 }] });
+    await advance(0);
+    await advance(600);
+    expect(api.mock.calls.some(([m, p]) => m === 'PUT' && p.includes('/b'))).toBe(true);
+    expect(api.mock.calls.some(([m]) => m === 'DELETE')).toBe(false);
+  });
+});

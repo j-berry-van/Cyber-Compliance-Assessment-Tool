@@ -455,3 +455,54 @@ test('a stale poll result (lower version) never stamps our newer own write; the 
   expect(engine.getEntries('c')[0]).toMatchObject({ version: 3, updatedBy: 1, updatedAt: 'me' });
   expect(heard).not.toHaveBeenCalled();
 });
+
+test.each([408, 429])('a %i stays queued and is retried rather than dropped', async (status) => {
+  await boot();
+  api.mockRejectedValueOnce(new ApiError(status, {})).mockResolvedValue({ version: 1, rev: 1 });
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: 1 }], deletes: [] });
+  await advance(500);
+  expect(engine.useSyncStatus.getState().pending).toBe(1);
+  await advance(2500);
+  expect(engine.useSyncStatus.getState().pending).toBe(0);
+  expect(engine.useSyncStatus.getState().error).toBeNull();
+});
+
+test('two tabs of one user do not overwrite each other\'s persisted outbox', async () => {
+  await boot();
+  const foreign = { collection: 'c', id: 'other-tab', op: 'put', data: { n: 9 }, baseVersion: 0, owner: 'another-tab' };
+  localStorage.setItem('csf-sync-outbox:anonymous', JSON.stringify([foreign]));
+  engine.enqueue({ puts: [{ collection: 'c', id: 'mine', data: { n: 1 } }], deletes: [] });
+  const stored = JSON.parse(localStorage.getItem('csf-sync-outbox:anonymous'));
+  expect(stored.map((o) => o.id).sort()).toEqual(['mine', 'other-tab']);
+  expect(stored.find((o) => o.id === 'other-tab').owner).toBe('another-tab');
+  // this tab sends only its own entry; once sent it is removed while the other tab's entry stays
+  api.mockResolvedValue({ version: 1, rev: 1 });
+  await advance(500);
+  expect(api.mock.calls.filter(([m]) => m === 'PUT')).toHaveLength(1);
+  expect(JSON.parse(localStorage.getItem('csf-sync-outbox:anonymous')).map((o) => o.id)).toEqual(['other-tab']);
+});
+
+test('a reloaded tab adopts entries left behind by an earlier tab', async () => {
+  localStorage.setItem('csf-sync-outbox:anonymous', JSON.stringify([
+    { collection: 'c', id: 'left', op: 'put', data: { n: 1 }, baseVersion: 0, owner: 'dead-tab' }
+  ]));
+  api.mockResolvedValue({ version: 1, rev: 1 });
+  await boot();
+  await advance(10);
+  expect(api.mock.calls.filter(([m]) => m === 'PUT')).toHaveLength(1);
+});
+
+test('flushNow resolves only after the flush in progress completes', async () => {
+  await boot();
+  let release;
+  api.mockImplementationOnce(() => new Promise((r) => { release = () => r({ version: 1, rev: 1 }); }));
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: 1 }], deletes: [] });
+  await advance(500); // flush is now in flight
+  let done = false;
+  const p = engine.flushNow().then(() => { done = true; });
+  await advance(10);
+  expect(done).toBe(false);
+  release();
+  await p;
+  expect(engine.useSyncStatus.getState().pending).toBe(0);
+});

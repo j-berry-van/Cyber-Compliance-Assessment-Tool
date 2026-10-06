@@ -30,6 +30,7 @@ let cursor = 0;
 let flushTimer = null;
 let pollTimer = null;
 let flushing = false;
+let flushPromise = Promise.resolve();
 let rerun = false;
 let backoff = 0;
 let held = false;             // sends paused (AuthGate decides about importing before anything is written)
@@ -46,8 +47,19 @@ const entryOf = (r) => ({
   updatedBy: r.updatedBy ?? null, updatedAt: r.updatedAt ?? null
 });
 
+// Several tabs of one user share this key. Each entry records the tab that queued it; a tab rewrites
+// only its own entries and keeps the others' (loadOutbox at bootstrap adopts everything left behind).
+const tabId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+const readStoredOutbox = () => {
+  try { return JSON.parse(localStorage.getItem(outboxKey()) || '[]'); } catch { return []; }
+};
 const persistOutbox = () => {
-  try { localStorage.setItem(outboxKey(), JSON.stringify([...outbox.values()])); } catch { /* quota: keep in memory */ }
+  try {
+    const mine = [...outbox.values()].map((o) => ({ ...o, owner: tabId }));
+    const keys = new Set(mine.map((o) => recordKey(o.collection, o.id)));
+    const foreign = readStoredOutbox().filter((o) => o.owner && o.owner !== tabId && !keys.has(recordKey(o.collection, o.id)));
+    localStorage.setItem(outboxKey(), JSON.stringify([...foreign, ...mine]));
+  } catch { /* quota: keep in memory */ }
 };
 const loadOutbox = () => {
   try {
@@ -157,9 +169,15 @@ function scheduleFlush(ms) {
   flushTimer = setTimeout(() => { flushNow(); }, ms);
 }
 
-export async function flushNow() {
-  if (held) return;
-  if (flushing) { rerun = true; return; }
+// Resolves when the flush in progress (or the one started now) finishes; sign-out awaits it.
+export function flushNow() {
+  if (held) return Promise.resolve();
+  if (flushing) { rerun = true; return flushPromise; }
+  flushPromise = runFlush();
+  return flushPromise;
+}
+
+async function runFlush() {
   flushing = true;
   let failed = false;
   let rejected = 0;
@@ -181,7 +199,7 @@ export async function flushNow() {
         if (outbox.get(key) === op) outbox.delete(key);
         else if (outbox.get(key)) outbox.get(key).baseVersion = result.version;
       } catch (e) {
-        const permanent = e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 401 && e.status !== 409;
+        const permanent = e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 401 && e.status !== 409 && e.status !== 408 && e.status !== 429;
         if (permanent) {
           rejected += 1;
           if (outbox.get(key) === op) outbox.delete(key);

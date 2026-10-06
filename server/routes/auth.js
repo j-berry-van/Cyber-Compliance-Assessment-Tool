@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { hashPassword, verifyPassword, MIN_PASSWORD_LENGTH } from '../utils/passwords.js';
-import { createSession, destroySession, requireAuth } from '../middlewares/auth.js';
+import { createSession, destroySession, requireAuth, COOKIE_NAME, hashToken } from '../middlewares/auth.js';
 import { loginLimiter } from '../utils/rateLimiter.js';
 
 // Verified against when the username is unknown so both paths cost exactly one scrypt operation.
@@ -56,7 +56,12 @@ export default function authRoutes(db) {
     if (typeof newPassword !== 'string' || newPassword.length < MIN_PASSWORD_LENGTH) {
       return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(newPassword), req.user.id);
+    const current = req.cookies?.[COOKIE_NAME];
+    db.transaction(() => {
+      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(newPassword), req.user.id);
+      // A changed password signs out every other device/browser, keeping this one.
+      db.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(req.user.id, current ? hashToken(current) : '');
+    })();
     return res.json({ ok: true });
   });
 

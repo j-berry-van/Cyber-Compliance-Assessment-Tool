@@ -7,6 +7,7 @@ export const registerStoreForRehydrate = (store) => {
   if (name) stores.set(name, store);
 };
 
+export const getRegisteredStore = (name) => stores.get(name);
 export const getRegisteredStoreNames = () => [...stores.keys()];
 
 export function whenAllHydrated() {

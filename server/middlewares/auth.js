@@ -2,7 +2,7 @@ import { randomBytes, createHash } from 'node:crypto';
 
 export const COOKIE_NAME = 'csf_session';
 const SESSION_MS = 14 * 24 * 60 * 60 * 1000;
-const hashToken = (t) => createHash('sha256').update(t).digest('hex');
+export const hashToken = (t) => createHash('sha256').update(t).digest('hex');
 
 const cookieOptions = (req) => ({
   httpOnly: true,

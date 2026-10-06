@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import toast from 'react-hot-toast';
 import { api, setUnauthorizedHandler } from './serverClient';
-import { bootstrap, start, stop } from './syncEngine';
+import { bootstrap, start, stop, flushNow } from './syncEngine';
 import useAccountStore from '../stores/accountStore';
 import { wireRemoteRehydration, rehydrateAll } from './rehydrateOnRemote';
 
@@ -79,6 +79,8 @@ const useAuthStore = create((set) => ({
   },
 
   async logout() {
+    // Best effort: whatever cannot be sent stays in this user's outbox and is replayed at the next sign-in.
+    try { await flushNow(); } catch { /* keep going */ }
     try {
       await api('POST', '/auth/logout', {});
     } catch {

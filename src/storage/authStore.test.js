@@ -1,7 +1,9 @@
 import toast from 'react-hot-toast';
 import { api } from './serverClient';
 import useAuthStore from './authStore';
+import { flushNow } from './syncEngine';
 
+jest.mock('./syncEngine', () => ({ ...jest.requireActual('./syncEngine'), flushNow: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('./serverClient', () => ({ api: jest.fn(), setUnauthorizedHandler: () => {} }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { error: jest.fn() } }));
 
@@ -27,5 +29,20 @@ test('successful logout reloads', async () => {
   api.mockResolvedValue({ ok: true });
   await useAuthStore.getState().logout();
   expect(api).toHaveBeenCalledWith('POST', '/auth/logout', {});
+  expect(reload).toHaveBeenCalledTimes(1);
+});
+
+test('logout flushes unsent changes before signing out', async () => {
+  const order = [];
+  flushNow.mockImplementationOnce(async () => { order.push('flush'); });
+  api.mockImplementation(async (m, p) => { order.push(`${m} ${p}`); return { ok: true }; });
+  await useAuthStore.getState().logout();
+  expect(order).toEqual(['flush', 'POST /auth/logout']);
+});
+
+test('logout still signs out when the flush fails', async () => {
+  flushNow.mockRejectedValueOnce(new Error('offline'));
+  api.mockResolvedValue({ ok: true });
+  await useAuthStore.getState().logout();
   expect(reload).toHaveBeenCalledTimes(1);
 });

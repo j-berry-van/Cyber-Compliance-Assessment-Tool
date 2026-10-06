@@ -134,3 +134,15 @@ test('session expiry slides forward on use', async () => {
   const { expires_at } = db.prepare('SELECT expires_at FROM sessions').get();
   assert.ok(expires_at > Date.now() + 13 * day, `expected ~14 days, got ${(expires_at - Date.now()) / day}`);
 });
+
+test('changing the password signs out other sessions but keeps the current one', async () => {
+  const { app } = makeApp();
+  const agent = await setupAdmin(app);
+  const other = request.agent(app);
+  await other.post('/api/auth/login').set(JSON_HEADERS).send({ username: 'admin', password: 'correct horse battery' }).expect(200);
+  await other.get('/api/auth/me').expect(200);
+  await agent.post('/api/auth/password').set(JSON_HEADERS)
+    .send({ currentPassword: 'correct horse battery', newPassword: 'a brand new password' }).expect(200);
+  await other.get('/api/auth/me').expect(401);
+  await agent.get('/api/auth/me').expect(200);
+});
