@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import Papa from 'papaparse';
 import { escapeCSVValue } from '../utils/sanitize';
+import { createStorage } from '../storage/createStorage';
 
 export const CSF_FRAMEWORK_ID = 'nist-csf-2.0';
 
@@ -441,6 +442,7 @@ const useRequirementsStore = create(
     }),
     {
       name: 'csf-requirements-storage',
+      storage: createStorage('csf-requirements-storage'),
       partialize: (state) => ({
         requirements: state.requirements
       })

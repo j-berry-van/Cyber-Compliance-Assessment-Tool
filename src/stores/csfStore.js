@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { parseUserInfo, findOrCreateUser } from '../utils/userUtils';
 import { sanitizeInput } from '../utils/sanitize';
 import Papa from 'papaparse';
+import { createStorage } from '../storage/createStorage';
 
 // History for undo/redo
 const MAX_HISTORY_SIZE = 50;
@@ -253,6 +254,7 @@ const useCSFStore = create(
     }),
     {
       name: 'csf-data-storage',
+      storage: createStorage('csf-data-storage'),
       version: 2,
       migrate: (persistedState, version) => {
         // Version 2: Force re-download of CSV to get proper owner assignments

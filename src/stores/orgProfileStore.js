@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createStorage } from '../storage/createStorage';
 
 /**
  * Organization profile — powers optional tailoring of community test
@@ -58,6 +59,7 @@ const useOrgProfileStore = create(
     }),
     {
       name: 'csf-org-profile-storage',
+      storage: createStorage('csf-org-profile-storage'),
       version: ORG_PROFILE_SCHEMA_VERSION
     }
   )

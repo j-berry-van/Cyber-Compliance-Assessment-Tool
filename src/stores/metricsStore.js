@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createStorage } from '../storage/createStorage';
 
 /**
  * Metrics catalogue store — user-imported KPI/KRI/metric DEFINITIONS.
@@ -58,6 +59,7 @@ const useMetricsStore = create(
     }),
     {
       name: 'csf-metrics-storage',
+      storage: createStorage('csf-metrics-storage'),
       version: 1,
       partialize: (state) => ({ metrics: state.metrics })
     }

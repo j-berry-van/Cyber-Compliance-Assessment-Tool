@@ -6,6 +6,7 @@
 
 import { SHARE_SECTIONS, OMIT, foldSection, buildShareContext } from './shareRegistry';
 import { filterExportByAssessments } from './assessmentSelection';
+import { getPersistedVersion } from '../storage/persistedVersions';
 
 /**
  * Export format version. Bump when the envelope shape changes and teach
@@ -58,6 +59,8 @@ export const PERSIST_KEYS = {
  * Returns null when the key is absent or unreadable (fresh browser, no data).
  */
 export const readPersistedVersion = (persistKey) => {
+  const fromServer = getPersistedVersion(persistKey);
+  if (fromServer !== null) return fromServer;
   try {
     const raw = window.localStorage.getItem(persistKey);
     if (!raw) return null;

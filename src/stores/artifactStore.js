@@ -6,6 +6,7 @@ import { escapeCSVValue, csvFormulaGuard } from '../utils/sanitize';
 import { DEFAULT_ARTIFACTS, RELOCATED_ARTIFACT_LINKS } from './defaultArtifactsData';
 import { COMPREHENSIVE_ARTIFACTS, COMPREHENSIVE_ASSESSMENT_ID } from './comprehensiveAssessmentData';
 import { DEMO_SEED_SOURCE } from '../utils/assessmentScope';
+import { createStorage } from '../storage/createStorage';
 
 // Merge defaults + catalog artifacts. De-dupe by artifactId; catalog wins ties.
 // Every shipped artifact is Alma demo evidence, so all of them are scoped to
@@ -566,6 +567,7 @@ const useArtifactStore = create(
     }),
     {
       name: 'csf-artifacts-storage',
+      storage: createStorage('csf-artifacts-storage'),
       version: 9,
       migrate: (persistedState, version) => migrateArtifactsState(persistedState, version),
       partialize: (state) => ({

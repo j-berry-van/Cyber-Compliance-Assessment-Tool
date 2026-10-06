@@ -7,6 +7,8 @@ export const registerStoreForRehydrate = (store) => {
   if (name) stores.set(name, store);
 };
 
+export const getRegisteredStoreNames = () => [...stores.keys()];
+
 export function whenAllHydrated() {
   return Promise.all([...stores.values()].map((s) =>
     s.persist.hasHydrated() ? Promise.resolve() : new Promise((resolve) => { const off = s.persist.onFinishHydration(() => { off(); resolve(); }); })

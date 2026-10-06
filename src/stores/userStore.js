@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { DEMO_SEED_SOURCE } from '../utils/assessmentScope';
+import { createStorage } from '../storage/createStorage';
 
 // Default users for new installations — the demo (Alma Security) staff.
 // seedSource marks them as shipped example data (issue #297) so the directory
@@ -245,6 +246,7 @@ const useUserStore = create(
     }),
     {
       name: 'csf-users-storage',
+      storage: createStorage('csf-users-storage'),
       version: 3,
       migrate: (persistedState, version) => migrateUsersState(persistedState, version),
     }

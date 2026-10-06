@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getScoringScale } from '../utils/scoringScale';
+import { createStorage } from '../storage/createStorage';
 
 /**
  * AI Assistant Store
@@ -453,6 +454,7 @@ Format as an actionable plan that can be imported into a remediation tracker.`;
     }),
     {
       name: 'csf-ai-storage',
+      storage: createStorage('csf-ai-storage'),
       partialize: (state) => ({
         llmProvider: state.llmProvider,
         dataMode: state.dataMode,

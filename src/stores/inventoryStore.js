@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
+import { createStorage } from '../storage/createStorage';
 
 /**
  * System inventory store — the org's application/system register (issue: PR-A
@@ -297,6 +298,7 @@ const useInventoryStore = create(
     }),
     {
       name: 'csf-inventory-storage',
+      storage: createStorage('csf-inventory-storage'),
       version: 1,
       partialize: (state) => ({ systems: state.systems })
     }

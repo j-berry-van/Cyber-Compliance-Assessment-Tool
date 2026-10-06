@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createStorage } from '../storage/createStorage';
 
 const useUIStore = create(
   persist(
@@ -110,6 +111,7 @@ const useUIStore = create(
     }),
     {
       name: 'csf-ui-storage',
+      storage: createStorage('csf-ui-storage'),
       partialize: (state) => ({
         darkMode: state.darkMode,
         itemsPerPage: state.itemsPerPage,

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import useUserStore from './userStore';
 import { csvFormulaGuard } from '../utils/sanitize';
+import { createStorage } from '../storage/createStorage';
 
 // Retention cap — oldest entries fall off past this count. Raised from 500
 // when field-level logging across three entity types landed; at ~250 bytes
@@ -191,7 +192,7 @@ const useAuditLogStore = create(
         URL.revokeObjectURL(url);
       }
     }),
-    { name: 'csf-audit-log' }
+    { name: 'csf-audit-log', storage: createStorage('csf-audit-log') }
   )
 );
 

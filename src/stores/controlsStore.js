@@ -7,6 +7,7 @@ import useCommentsStore from './commentsStore';
 import { DEFAULT_CONTROLS } from './defaultControlsData';
 import { COMPREHENSIVE_ASSESSMENT_ID } from './comprehensiveAssessmentData';
 import { DEMO_SEED_SOURCE } from '../utils/assessmentScope';
+import { createStorage } from '../storage/createStorage';
 
 /**
  * Implementation status a control can carry (issue #306). The first value is
@@ -653,6 +654,7 @@ const useControlsStore = create(
     }),
     {
       name: 'csf-controls-storage',
+      storage: createStorage('csf-controls-storage'),
       version: 7,
       migrate: (persistedState, version) => migrateControlsState(persistedState, version),
       partialize: (state) => ({
