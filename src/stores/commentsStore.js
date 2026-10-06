@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createStorage } from '../storage/createStorage';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeInput } from '../utils/sanitize';
 import useUserStore from './userStore';
@@ -195,7 +196,8 @@ const useCommentsStore = create(
     }),
     {
       name: 'csf-comments-storage',
-      version: 1
+      version: 1,
+      storage: createStorage('csf-comments-storage')
     }
   )
 );

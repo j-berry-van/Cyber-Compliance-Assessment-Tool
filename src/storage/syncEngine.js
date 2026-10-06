@@ -10,6 +10,16 @@ export const configureEngine = (next) => { cfg = { ...cfg, ...next }; };
 
 export const useSyncStatus = create(() => ({ state: 'idle', pending: 0, conflicts: [], lastSaved: null, error: null }));
 
+const problems = new Map(); // source -> message
+const firstProblem = () => {
+  for (const m of problems.values()) if (m) return m;
+  return null;
+};
+export function setSyncProblem(source, message) {
+  if (message) problems.set(source, message); else problems.delete(source);
+  useSyncStatus.setState({ error: firstProblem() });
+}
+
 const listeners = new Set();
 export const onRemoteChange = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
 
@@ -171,11 +181,8 @@ export async function flushNow() {
       }
     }
     backoff = 0;
-    refreshStatus({
-      state: 'idle',
-      lastSaved: Date.now(),
-      ...(rejected ? { error: `${rejected} change(s) could not be saved (rejected by the server)` } : {})
-    });
+    setSyncProblem('flush', rejected ? `${rejected} change(s) could not be saved (rejected by the server)` : null);
+    refreshStatus({ state: 'idle', lastSaved: Date.now() });
   } catch (e) {
     failed = true;
     if (e instanceof ApiError && e.status === 401) {
@@ -256,6 +263,7 @@ export function reset() {
   cache = new Map(); outbox = new Map(); conflicts = new Map();
   cursor = 0; flushing = false; rerun = false; backoff = 0;
   listeners.clear();
+  problems.clear();
   newReady();
   useSyncStatus.setState({ state: 'idle', pending: 0, conflicts: [], lastSaved: null, error: null });
 }

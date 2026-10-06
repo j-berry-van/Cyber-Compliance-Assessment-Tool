@@ -336,3 +336,36 @@ test('the outbox is per user', async () => {
   await advance(10);
   expect(api.mock.calls[api.mock.calls.length - 1][0]).toBe('PUT');
 });
+
+describe('source-keyed sync problems', () => {
+  test('flush rejection error clears after a clean flush', async () => {
+    await boot();
+    api.mockRejectedValueOnce(new ApiError(400, { error: 'bad' })).mockResolvedValue({ version: 1, rev: 1 });
+    engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 1 } }], deletes: [] });
+    await advance(500);
+    expect(engine.useSyncStatus.getState().error).toMatch(/1 change\(s\) could not be saved/);
+    engine.enqueue({ puts: [{ collection: 'c', id: 'b', data: { n: 1 } }], deletes: [] });
+    await advance(500);
+    expect(engine.useSyncStatus.getState().error).toBeNull();
+  });
+
+  test('problems from two sources coexist and clear independently without touching state', async () => {
+    await boot();
+    engine.setSyncProblem('s1', 'one');
+    engine.setSyncProblem('s2', 'two');
+    expect(engine.useSyncStatus.getState().error).toBe('one');
+    expect(engine.useSyncStatus.getState().state).toBe('idle');
+    engine.setSyncProblem('s1', null);
+    expect(engine.useSyncStatus.getState().error).toBe('two');
+    engine.setSyncProblem('s2', '');
+    expect(engine.useSyncStatus.getState().error).toBeNull();
+  });
+
+  test('reset clears all problems', async () => {
+    engine.setSyncProblem('s1', 'one');
+    engine.reset();
+    expect(engine.useSyncStatus.getState().error).toBeNull();
+    await boot();
+    expect(engine.useSyncStatus.getState().error).toBeNull();
+  });
+});
