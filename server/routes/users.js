@@ -28,6 +28,9 @@ export default function userRoutes(db) {
     if (!validParticipantId(participantId)) {
       return res.status(400).json({ error: 'participantId must be an integer or null' });
     }
+    if (typeof isAdmin !== 'boolean') {
+      return res.status(400).json({ error: 'isAdmin must be a boolean' });
+    }
     try {
       const info = db.prepare(
         `INSERT INTO users(username, display_name, password_hash, is_admin, participant_id, created_at)
@@ -57,8 +60,15 @@ export default function userRoutes(db) {
       return res.status(400).json({ error: 'participantId must be an integer or null' });
     }
 
-    const willBeActiveAdmin =
-      (isAdmin ?? !!row.is_admin) && !(disabled ?? !!row.disabled);
+    for (const [k, v] of [['isAdmin', isAdmin], ['disabled', disabled]]) {
+      if (v !== undefined && typeof v !== 'boolean') {
+        return res.status(400).json({ error: `${k} must be a boolean` });
+      }
+    }
+
+    const nextAdmin = isAdmin !== undefined ? isAdmin : !!row.is_admin;
+    const nextDisabled = disabled !== undefined ? disabled : !!row.disabled;
+    const willBeActiveAdmin = nextAdmin && !nextDisabled;
     if (row.is_admin && !row.disabled && !willBeActiveAdmin) {
       const others = db.prepare('SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND disabled = 0 AND id != ?').get(id).n;
       if (others === 0) return res.status(409).json({ error: 'last-admin' });
@@ -69,8 +79,8 @@ export default function userRoutes(db) {
     ).run(
       displayName !== undefined ? displayName : row.display_name,
       password !== undefined ? hashPassword(password) : row.password_hash,
-      disabled !== undefined ? (disabled ? 1 : 0) : row.disabled,
-      isAdmin !== undefined ? (isAdmin ? 1 : 0) : row.is_admin,
+      nextDisabled ? 1 : 0,
+      nextAdmin ? 1 : 0,
       participantId !== undefined ? participantId : row.participant_id,
       id
     );

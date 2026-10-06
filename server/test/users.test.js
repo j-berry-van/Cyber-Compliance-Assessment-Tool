@@ -99,3 +99,48 @@ test('an admin can be demoted when another active admin exists', async () => {
   await admin.post('/api/users').set(JSON_HEADERS).send({ ...newUser, isAdmin: true }).expect(201);
   await admin.patch(`/api/users/${me.body.id}`).set(JSON_HEADERS).send({ isAdmin: false }).expect(200);
 });
+
+test('non-boolean isAdmin/disabled are rejected and cannot bypass the last-admin guard', async () => {
+  const { app } = makeApp();
+  const admin = await setupAdmin(app);
+  const me = await admin.get('/api/auth/me');
+  const url = `/api/users/${me.body.id}`;
+  await admin.patch(url).set(JSON_HEADERS).send({ isAdmin: null }).expect(400);
+  await admin.patch(url).set(JSON_HEADERS).send({ disabled: null }).expect(400);
+  await admin.patch(url).set(JSON_HEADERS).send({ isAdmin: 'false' }).expect(400);
+  await admin.patch(url).set(JSON_HEADERS).send({ disabled: 'true' }).expect(400);
+  await admin.post('/api/users').set(JSON_HEADERS).send({ ...newUser, isAdmin: 'yes' }).expect(400);
+  await admin.post('/api/users').set(JSON_HEADERS).send({ ...newUser, isAdmin: null }).expect(400);
+  const after = await admin.get('/api/users').expect(200);
+  assert.equal(after.body[0].isAdmin, true);
+  assert.equal(after.body[0].disabled, false);
+});
+
+test('non-admin PATCH is forbidden', async () => {
+  const { app } = makeApp();
+  const admin = await setupAdmin(app);
+  const created = await admin.post('/api/users').set(JSON_HEADERS).send(newUser).expect(201);
+  const sam = request.agent(app);
+  await sam.post('/api/auth/login').set(JSON_HEADERS).send({ username: 'sam', password: newUser.password }).expect(200);
+  await sam.patch(`/api/users/${created.body.id}`).set(JSON_HEADERS).send({ displayName: 'Hax' }).expect(403);
+});
+
+test('demote+disable in one PATCH on the last admin is 409', async () => {
+  const { app } = makeApp();
+  const admin = await setupAdmin(app);
+  const me = await admin.get('/api/auth/me');
+  await admin.patch(`/api/users/${me.body.id}`).set(JSON_HEADERS).send({ isAdmin: false, disabled: true }).expect(409);
+});
+
+test('with a second active admin the first can be disabled; a disabled admin does not count', async () => {
+  const { app } = makeApp();
+  const admin = await setupAdmin(app);
+  const me = await admin.get('/api/auth/me');
+  const b = await admin.post('/api/users').set(JSON_HEADERS).send({ ...newUser, isAdmin: true }).expect(201);
+  // disable B first: A is then the only active admin, so A cannot be disabled
+  await admin.patch(`/api/users/${b.body.id}`).set(JSON_HEADERS).send({ disabled: true }).expect(200);
+  await admin.patch(`/api/users/${me.body.id}`).set(JSON_HEADERS).send({ disabled: true }).expect(409);
+  // re-enable B: now A can be disabled
+  await admin.patch(`/api/users/${b.body.id}`).set(JSON_HEADERS).send({ disabled: false }).expect(200);
+  await admin.patch(`/api/users/${me.body.id}`).set(JSON_HEADERS).send({ disabled: true }).expect(200);
+});
