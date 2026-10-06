@@ -3050,7 +3050,7 @@ git commit -m "feat(auth): attribute edits to signed-in accounts; show assessmen
 - Create: `docs/SELF_HOSTING.md`, `Dockerfile`, `.dockerignore`
 - Modify: `README.md`, `PRIVATE_DATA.md`, `server/package.json` (nothing), `docs/superpowers/specs/2026-10-06-multi-user-server-storage-design.md`
 
-- [ ] **Step 1: Write `docs/SELF_HOSTING.md`** covering, with exact commands:
+- [ ] **Step 1: Write `docs/SELF_HOSTING.md`** (Step 3 also adds `docs/MULTI_USER.md`) covering, with exact commands:
   1. Build: `REACT_APP_SERVER_MODE=true INLINE_RUNTIME_CHUNK=false npm run build` (inline runtime chunk off because the server's CSP forbids inline scripts).
   2. Run: `cd server && npm ci && MULTIUSER=true STATIC_DIR=../build DATA_DIR=/var/lib/csf COOKIE_SECURE=true node index.js`; first visit shows "Create the admin account".
   3. HTTPS: terminate TLS at a reverse proxy (Caddy/nginx) and forward `X-Forwarded-Proto`; note `app.set('trust proxy', 1)` must be added to `server/app.js` when `COOKIE_SECURE` is unset behind a proxy (add this line now: `if (process.env.TRUST_PROXY === 'true') app.set('trust proxy', 1);` plus a test asserting `Secure` appears when `COOKIE_SECURE=true`).
@@ -3083,7 +3083,27 @@ CMD ["node", "index.js"]
 
 `.dockerignore`: `node_modules`, `server/node_modules`, `build`, `.git`, `server/data`.
 
-- [ ] **Step 3: Reword privacy statements.** In `PRIVATE_DATA.md` (intro paragraph and the "Your pack never touches…" paragraph) and `README.md`, replace "stores … in your browser's localStorage. Nothing is uploaded." with wording that is true in both modes: in local mode data stays in this browser; in a self-hosted multi-user deployment data is stored in your own server's database and visible to everyone with an account. Also update the `orgProfileStore.js` header comment ("lives only in this browser's localStorage") to say it syncs to the server in multi-user mode, and note that `cloudConsent` still gates sending profile text to a cloud AI provider.
+- [ ] **Step 3: Broad documentation update.** The product now has two modes, so every statement that says data lives only in the browser, "nothing is uploaded", or "never leaves your machine" must be found and corrected. Org profile data now syncs to the server in multi-user mode; this is expected and must be stated plainly, not hidden. Start from this inventory and then grep for stragglers:
+
+  ```bash
+  grep -rIn -i "localStorage\|nothing is uploaded\|stays in your browser\|never leaves\|your browser\|local-first\|only in this browser" \
+    --include=*.md --include=*.js --include=*.html . --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.git --exclude-dir=_future | grep -v "\.test\.js"
+  ```
+
+  Update each hit that is user-facing or documentation (leave code comments that are still accurate):
+  - `README.md`: new "Two ways to run it" section (local/desktop vs. self-hosted multi-user), feature list (accounts, shared workspace, conflict prompts, activity indicator), architecture overview, updated tech stack, and links to the new docs.
+  - `INSTALL_THE_APP/README.md`: keep the local/desktop install steps; add a pointer to `docs/SELF_HOSTING.md` and say clearly which mode each option gives.
+  - `PRIVATE_DATA.md`: reword the intro and "Your pack never touches this repository, any fork, or any server" paragraph. In local mode the pack stays in the browser; in multi-user mode importing a pack writes its data to your own server's database, visible to every account. Keep the advice to store pack files outside git.
+  - `SECURITY.md`: add a multi-user threat-model section (session cookies, scrypt hashing, CSRF guard, rate limiting, no self-signup, admin-reset passwords, the server holds all assessment data in one SQLite file, back it up and restrict file permissions, run behind HTTPS) and the supported-configuration statement for the AI proxy now requiring a session.
+  - `CONTRIBUTING.md`: how to run the server tests (`cd server && npm test`), the client tests, how to run in server mode locally, and the rule "every new persisted store must get an entry in `src/storage/storeConfigs.js` (the `storeConfigs.test.js` suite fails otherwise)".
+  - `THIRD-PARTY-NOTICES.md`: add `better-sqlite3`, `cookie-parser` and `supertest` with their licenses (check each package's `license` field in `node_modules`).
+  - `SCREENSHOTS.md`: if it documents screens, add a note that server mode adds Sign in, Create admin, Accounts, and the conflict dialog; capture new screenshots into `public/screenshots/` only if the existing file's convention is to track them (check first; do not add images otherwise).
+  - `docs/SELF_HOSTING.md` (Step 1), plus a new `docs/MULTI_USER.md` user guide: first-run setup, adding teammates, linking an account to an assessment participant, what the Saving/Unsaved indicator means, how to resolve a "Someone else changed this record" conflict, importing a browser's existing data, what stays per-browser, signing out, and password reset.
+  - In-app text: `src/components/FirstVisitWarning.js` and the relevant copy in `src/pages/Settings.js` (backup/export wording, "Private data pack" help text), `src/components/BackupReminder.js`, and the `src/utils/safeStorage.js` quota toast stay accurate for local mode; in server mode hide the "browser storage is full / export a backup because your data lives in this browser" messaging (gate it on `isServerMode()`) and replace it with copy that says data is saved to the server and backups are the administrator's responsibility. Add or update tests for each gated message in both modes.
+  - Code comments: update the privacy-model comment in `src/stores/orgProfileStore.js` to describe both modes, and note that `cloudConsent` still gates sending profile text to a cloud AI provider. Update the `dataExport.js` header comment ("All persisted state lives in the browser's localStorage").
+  - `_future/` is out of scope; do not edit it.
+
+  Finish by re-running the grep above and confirming every remaining hit is either a code comment that is still accurate, local-mode-only copy that is gated on the mode, or inside `_future/`.
 
 - [ ] **Step 4: Amend the spec** (`docs/superpowers/specs/2026-10-06-multi-user-server-storage-design.md`) so it matches what was built:
   - §2: password hashing is Node's built-in `crypto.scrypt` (no native dependency) instead of argon2id/bcrypt.
@@ -3105,7 +3125,7 @@ In a browser at `http://localhost:4000`: create the admin; edit a finding; open 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add docs Dockerfile .dockerignore README.md PRIVATE_DATA.md src/stores/orgProfileStore.js server/app.js server/test
+git add docs Dockerfile .dockerignore README.md INSTALL_THE_APP PRIVATE_DATA.md SECURITY.md CONTRIBUTING.md THIRD-PARTY-NOTICES.md SCREENSHOTS.md src server
 git commit -m "docs: self-hosting guide, Dockerfile, privacy wording, spec amendments"
 ```
 
