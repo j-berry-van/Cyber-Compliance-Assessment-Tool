@@ -411,3 +411,20 @@ test('a poll with a higher version still replaces the entry and emits', async ()
   expect(engine.getEntries('c')[0]).toMatchObject({ data: { n: 3 }, version: 3, updatedBy: 9 });
   expect(heard).toHaveBeenCalledTimes(1);
 });
+
+test('a stale poll result (lower version) never stamps our newer own write; the real echo does', async () => {
+  await boot([rec('c', 'a', { n: 1 }, 1)], 5);
+  api.mockResolvedValueOnce({ version: 3, rev: 7 });
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 3 } }], deletes: [] });
+  await advance(500);
+  expect(engine.getEntries('c')[0]).toMatchObject({ version: 3, updatedBy: null });
+  const heard = jest.fn();
+  engine.onRemoteChange(heard);
+  api.mockResolvedValueOnce({ cursor: 6, records: [{ ...rec('c', 'a', { n: 2 }, 2), updatedBy: 99, updatedAt: 'teammate' }] });
+  await engine.pollNow();
+  expect(engine.getEntries('c')[0]).toMatchObject({ data: { n: 3 }, version: 3, updatedBy: null, updatedAt: null });
+  api.mockResolvedValueOnce({ cursor: 7, records: [{ ...rec('c', 'a', { n: 3 }, 3), updatedBy: 1, updatedAt: 'me' }] });
+  await engine.pollNow();
+  expect(engine.getEntries('c')[0]).toMatchObject({ version: 3, updatedBy: 1, updatedAt: 'me' });
+  expect(heard).not.toHaveBeenCalled();
+});

@@ -10,6 +10,8 @@ import Login from '../pages/Login';
 
 const Centered = ({ children }) => <div className="min-h-screen flex items-center justify-center text-gray-600">{children}</div>;
 
+const LAST_ACCOUNT_KEY = 'csf-last-account';
+const localValue = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
 const localFlag = (key) => { try { return !!localStorage.getItem(key); } catch { return false; } };
 
 export default function AuthGate({ children }) {
@@ -27,11 +29,18 @@ export default function AuthGate({ children }) {
     whenAllHydrated().then(() => {
       if (cancelled) return;
       // Link the account to its participant so comments/audit entries use that identity.
-      const participantId = useAuthStore.getState().user?.participantId;
-      if (participantId != null) {
-        const match = useUserStore.getState().users.find((p) => String(p.id) === String(participantId));
-        if (match) useUserStore.getState().setCurrentUser(match.id);
+      const account = useAuthStore.getState().user;
+      const participantId = account?.participantId;
+      const match = participantId != null
+        ? useUserStore.getState().users.find((p) => String(p.id) === String(participantId))
+        : undefined;
+      if (match) {
+        useUserStore.getState().setCurrentUser(match.id);
+      } else if (account && localValue(LAST_ACCOUNT_KEY) !== String(account.id)) {
+        // A different account on this browser must not inherit the previous account's participant.
+        useUserStore.getState().setCurrentUser(null);
       }
+      if (account) { try { localStorage.setItem(LAST_ACCOUNT_KEY, String(account.id)); } catch { /* best effort */ } }
       // Decide before children mount: their seed effects would otherwise fill the workspace first.
       setImportNeeded(isWorkspaceEmpty() && hasLocalData() && !localFlag(IMPORT_DONE_KEY) && !localFlag(IMPORT_DECLINED_KEY));
       setHydrated(true);

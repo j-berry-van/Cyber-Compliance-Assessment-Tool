@@ -113,7 +113,7 @@ const useCommentsStore = create(
           authorId: author?.id ?? null,
           // Name snapshot so the comment stays attributed even if the user
           // is later deleted from the directory.
-          authorName: author?.name || 'System',
+          authorName: userStore.getCurrentUserName(),
           mentions: parseMentions(clean, userStore.users),
           createdAt: new Date().toISOString()
         };

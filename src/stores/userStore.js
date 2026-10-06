@@ -92,8 +92,9 @@ const useUserStore = create(
       // trust model as every other store. null = no selection → 'System'.
       currentUserId: null,
 
-      // Signed-in server account's display name (server mode only). Deliberately NOT persisted
-      // (see partialize) so one user's identity can never leak to the next login in this browser.
+      // Signed-in server account's display name (server mode only). Only this field is never
+      // persisted (see partialize). currentUserId IS a per-browser field; AuthGate clears it when a
+      // different account signs in (without a linked participant) so it cannot carry over.
       accountDisplayName: null,
       setAccountDisplayName: (name) => set({ accountDisplayName: name ?? null }),
 

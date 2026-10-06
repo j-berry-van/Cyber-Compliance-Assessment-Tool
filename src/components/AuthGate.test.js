@@ -217,6 +217,7 @@ describe('linking the account to its participant', () => {
 
   test('a non-matching participant id leaves currentUserId unchanged', async () => {
     useUserStore.setState({ currentUserId: 2 });
+    localStorage.setItem('csf-last-account', '1'); // same account signing in again keeps its manual choice
     const base = signedInApi({ signedIn: true });
     useUserStore.setState({ users: [{ id: 2, name: 'Two' }] });
     api.mockImplementation(async (m, p) => (p === '/auth/me'
@@ -225,5 +226,40 @@ describe('linking the account to its participant', () => {
     render(<AuthGate><div>app</div></AuthGate>);
     expect(await screen.findByText('app')).toBeInTheDocument();
     expect(useUserStore.getState().currentUserId).toBe(2);
+  });
+
+  describe('account changes on the same browser', () => {
+    const accounts = { A: { id: 1, participantId: 2 }, B: { id: 2, participantId: null } };
+    const parts = [{ id: 2, name: 'Two' }, { id: 3, name: 'Three' }];
+    const signIn = async (who) => {
+      const base = signedInApi({ signedIn: true });
+      api.mockImplementation(async (m, p) => (p === '/auth/me'
+        ? { username: 'u', displayName: who, isAdmin: false, ...accounts[who] }
+        : base(m, p)));
+      useAuthStore.setState({ status: 'unknown', user: null, directory: new Map() });
+      engine.reset();
+      const { unmount } = render(<AuthGate><div>app</div></AuthGate>);
+      expect(await screen.findByText('app')).toBeInTheDocument();
+      unmount();
+    };
+    test('previous account participant is cleared; same account keeps its manual choice; link re-selects', async () => {
+      useUserStore.setState({ users: parts, currentUserId: null });
+      await signIn('A');
+      expect(useUserStore.getState().currentUserId).toBe(2);
+      await signIn('B');
+      expect(useUserStore.getState().currentUserId).toBeNull();
+      useUserStore.getState().setCurrentUser(3);
+      await signIn('B');
+      expect(useUserStore.getState().currentUserId).toBe(3);
+      await signIn('A');
+      expect(useUserStore.getState().currentUserId).toBe(2);
+    });
+    test('localStorage failures do not crash sign-in', async () => {
+      useUserStore.setState({ users: parts, currentUserId: 3 });
+      jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('no'); });
+      jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('no'); });
+      try { await signIn('B'); } finally { jest.restoreAllMocks(); }
+      expect(useUserStore.getState().currentUserId).toBeNull();
+    });
   });
 });

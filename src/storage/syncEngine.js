@@ -215,8 +215,9 @@ export async function pollNow() {
     const key = recordKey(r.collection, r.id);
     const have = cache.get(key);
     if (have && have.version >= r.version) {
-      // Our own echoed write: fill the server metadata without emitting a change.
-      if (have.updatedBy == null) { have.updatedBy = r.updatedBy; have.updatedAt = r.updatedAt; }
+      // Our own echoed write (same version): fill the server metadata without emitting a change.
+      // A LOWER polled version is stale (a flush landed after the poll was sent) and is ignored.
+      if (have.version === r.version && have.updatedBy == null) { have.updatedBy = r.updatedBy; have.updatedAt = r.updatedAt; }
       return;
     }
     cache.set(key, entryOf(r));

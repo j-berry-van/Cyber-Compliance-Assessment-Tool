@@ -30,3 +30,28 @@ test('accountDisplayName is never persisted; the persisted shape is unchanged', 
   expect(Object.keys(persisted.state).sort()).toEqual(['currentUserId', 'users']);
   expect(persisted.version).toBe(3);
 });
+
+describe('comment authorship', () => {
+  const useCommentsStore = require('./commentsStore').default;
+  const add = () => {
+    useCommentsStore.setState({ comments: [] });
+    useCommentsStore.getState().addComment({ targetType: 'finding', targetId: 'f1', text: 'hello' });
+    return useCommentsStore.getState().comments[0];
+  };
+  test('account name with no participant', () => {
+    useUserStore.getState().setAccountDisplayName('Kim');
+    expect(add().authorName).toBe('Kim');
+  });
+  test('participant name wins and authorId is the participant id', () => {
+    useUserStore.getState().setAccountDisplayName('Kim');
+    useUserStore.getState().setCurrentUser(1);
+    const c = add();
+    expect(c.authorName).toBe('Pat');
+    expect(c.authorId).toBe(1);
+  });
+  test('neither gives System with null authorId', () => {
+    const c = add();
+    expect(c.authorName).toBe('System');
+    expect(c.authorId).toBeNull();
+  });
+});
