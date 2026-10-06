@@ -6,6 +6,7 @@ import { isServerMode } from '../storage/createStorage';
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   FileText,
   Award,
   FileArchive,
@@ -123,13 +124,14 @@ const ActingUserSelect = () => {
 };
 
 // Server mode only: who is signed in, and a way out.
-const SessionControls = () => {
+const SessionControls = ({ onNavigate }) => {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   if (!isServerMode()) return null;
   return (
     <div className="app-acting-user">
       <span className="app-acting-user-label">Signed in as {user?.displayName ?? ''}</span>
+      <NavItem item={{ to: '/accounts', label: 'Accounts', Icon: UserCog }} onNavigate={onNavigate} />
       <button type="button" className="app-nav-item" onClick={() => logout()}>Sign out</button>
     </div>
   );
@@ -229,7 +231,7 @@ const Navigation = () => {
               <NavGroups pathname={pathname} onNavigate={closeDrawer} />
             </nav>
             <ActingUserSelect />
-            <SessionControls />
+            <SessionControls onNavigate={closeDrawer} />
           </div>
         </div>
       )}

@@ -41,6 +41,7 @@ const Findings = lazy(() => import('./pages/Findings'));
 const AuditLog = lazy(() => import('./pages/AuditLog'));
 const Metrics = lazy(() => import('./pages/Metrics'));
 const Inventory = lazy(() => import('./pages/Inventory'));
+const Accounts = lazy(() => import('./pages/Accounts'));
 
 // Lightweight fallback shown while a route chunk loads or its store hydrates.
 const RouteFallback = () => (
@@ -152,6 +153,7 @@ const AppContent = () => {
               <Route path="/history" element={<AuditLog />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/ai-assistant" element={<AIAssistant />} />
+              <Route path="/accounts" element={<Accounts />} />
             </Routes>
           </Suspense>
         </main>

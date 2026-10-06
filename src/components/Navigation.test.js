@@ -36,3 +36,15 @@ test('server mode renders exactly one sign-out button even with the mobile drawe
   expect(within(screen.getByRole('menu')).getAllByRole('button', { name: /sign out/i })).toHaveLength(1);
   expect(screen.getAllByRole('button', { name: /sign out/i })).toHaveLength(2);
 });
+
+test('server mode shows an Accounts link to /accounts', () => {
+  process.env.REACT_APP_SERVER_MODE = 'true';
+  useAuthStore.setState({ user: { id: 1, displayName: 'Ada' }, logout: jest.fn() });
+  renderNav();
+  expect(screen.getByRole('link', { name: /accounts/i })).toHaveAttribute('href', '/accounts');
+});
+
+test('local mode has no Accounts link', () => {
+  renderNav();
+  expect(screen.queryByRole('link', { name: /accounts/i })).not.toBeInTheDocument();
+});
