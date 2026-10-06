@@ -117,3 +117,56 @@ test('React StrictMode double effects only call init once', async () => {
   await screen.findByRole('heading', { name: /create the admin account/i });
   expect(api.mock.calls.filter(([, p]) => p === '/auth/status')).toHaveLength(1);
 });
+
+describe('blocking import step', () => {
+  const putSpy = [];
+  const seedLocal = () => localStorage.setItem('csf-comments-storage', JSON.stringify({ state: { comments: [{ id: 'c1', text: 'hi' }] }, version: 1 }));
+  const setup = (records = []) => {
+    putSpy.length = 0;
+    const base = signedInApi({ signedIn: true });
+    api.mockImplementation(async (m, p, b) => {
+      if (m === 'PUT') { putSpy.push(p); return { version: 1 }; }
+      if (p.startsWith('/records')) return { cursor: 0, records };
+      return base(m, p, b);
+    });
+  };
+  const Child = () => { React.useEffect(() => { api('PUT', '/records/seed/x', {}); }, []); return <div>app</div>; };
+
+  test('empty workspace + local data: prompt shown, children not mounted, no PUT issued; skip mounts children', async () => {
+    seedLocal();
+    setup();
+    render(<AuthGate><Child /></AuthGate>);
+    expect(await screen.findByRole('region', { name: /import this browser/i })).toBeInTheDocument();
+    expect(screen.queryByText('app')).not.toBeInTheDocument();
+    await act(async () => { await new Promise((r) => setTimeout(r, 700)); });
+    expect(putSpy).toHaveLength(0);
+    userEvent.click(screen.getByRole('button', { name: /not now/i }));
+    expect(await screen.findByText('app')).toBeInTheDocument();
+    expect(localStorage.getItem('csf-import-declined')).toBe('1');
+    expect(localStorage.getItem('csf-comments-storage')).toBeTruthy();
+  });
+
+  test('non-empty workspace + local data: children mount directly', async () => {
+    seedLocal();
+    setup([{ collection: 'x.items', id: '1', data: {}, version: 1, deleted: false }]);
+    render(<AuthGate><div>app</div></AuthGate>);
+    expect(await screen.findByText('app')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /import this browser/i })).not.toBeInTheDocument();
+  });
+
+  test('empty workspace + no local data: children mount directly', async () => {
+    setup();
+    render(<AuthGate><div>app</div></AuthGate>);
+    expect(await screen.findByText('app')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /import this browser/i })).not.toBeInTheDocument();
+  });
+
+  test.each(['csf-import-done', 'csf-import-declined'])('flag %s: children mount directly', async (flag) => {
+    seedLocal();
+    localStorage.setItem(flag, '1');
+    setup();
+    render(<AuthGate><div>app</div></AuthGate>);
+    expect(await screen.findByText('app')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /import this browser/i })).not.toBeInTheDocument();
+  });
+});

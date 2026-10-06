@@ -106,6 +106,13 @@ export function readCollection(collection) {
   return out;
 }
 
+// True when the server workspace has no live records and nothing is waiting to be sent.
+export function isWorkspaceEmpty() {
+  if (outbox.size) return false;
+  for (const e of cache.values()) if (!e.deleted) return false;
+  return true;
+}
+
 export function getEntries(collection) {
   const rows = [];
   cache.forEach((e) => { if (e.collection === collection && !e.deleted) rows.push(e); });

@@ -369,3 +369,21 @@ describe('source-keyed sync problems', () => {
     expect(engine.useSyncStatus.getState().error).toBeNull();
   });
 });
+
+test('isWorkspaceEmpty: true after bootstrap with no records', async () => {
+  await boot([]);
+  expect(engine.isWorkspaceEmpty()).toBe(true);
+});
+
+test('isWorkspaceEmpty: false with a cached record, true when it is only a tombstone', async () => {
+  await boot([rec('c', 'a', { n: 1 })]);
+  expect(engine.isWorkspaceEmpty()).toBe(false);
+  await boot([{ ...rec('c', 'a', null), deleted: true }]);
+  expect(engine.isWorkspaceEmpty()).toBe(true);
+});
+
+test('isWorkspaceEmpty: false with a pending outbox op', async () => {
+  await boot([]);
+  engine.enqueue({ puts: [{ collection: 'c', id: 'a', data: { n: 1 } }], deletes: [] });
+  expect(engine.isWorkspaceEmpty()).toBe(false);
+});

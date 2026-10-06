@@ -1,4 +1,4 @@
-import { collectLocalRecords, hasLocalData, importLocalData, buildLocalBackup } from './importLocalData';
+import { collectLocalRecords, hasLocalData, importLocalData, buildLocalBackup, IMPORT_DONE_KEY } from './importLocalData';
 import { api } from './serverClient';
 import { bootstrap } from './syncEngine';
 import { rehydrateAll } from './rehydrateOnRemote';
@@ -88,4 +88,40 @@ test('a refused import (workspace not empty) rejects, keeps local data, and does
   expect(localStorage.getItem('csf-comments-storage')).toBeTruthy();
   expect(bootstrap).not.toHaveBeenCalled();
   expect(rehydrateAll).not.toHaveBeenCalled();
+});
+
+test('items without an id are reported as problems and left out of the upload', async () => {
+  put('csf-comments-storage', { comments: [{ id: 'c1' }, { text: 'no id' }, { id: 'c1' }] });
+  const { records, problems } = collectLocalRecords();
+  expect(problems).toEqual([
+    { store: 'csf-comments-storage', field: 'comments', index: 1, id: null },
+    { store: 'csf-comments-storage', field: 'comments', index: 2, id: 'c1' }
+  ]);
+  expect(records.filter((r) => r.collection === 'csf-comments-storage.comments')).toHaveLength(1);
+  api.mockResolvedValue({ imported: 2 });
+  await importLocalData();
+  const sent = api.mock.calls[0][2].records.filter((r) => r.collection === 'csf-comments-storage.comments');
+  expect(sent).toHaveLength(1);
+});
+
+test('a successful POST sets the done flag', async () => {
+  seed();
+  api.mockResolvedValue({ imported: 2 });
+  await importLocalData();
+  expect(localStorage.getItem(IMPORT_DONE_KEY)).toBe('1');
+});
+
+test('a failed POST does not set the done flag', async () => {
+  seed();
+  api.mockRejectedValue(new Error('down'));
+  await expect(importLocalData()).rejects.toThrow('down');
+  expect(localStorage.getItem(IMPORT_DONE_KEY)).toBeNull();
+});
+
+test('a refresh failure after a successful POST is reported as refreshFailed with the result, not as a plain error', async () => {
+  seed();
+  api.mockResolvedValue({ imported: 2 });
+  bootstrap.mockRejectedValueOnce(new Error('net'));
+  await expect(importLocalData()).rejects.toMatchObject({ refreshFailed: true, result: { imported: 2 } });
+  expect(localStorage.getItem(IMPORT_DONE_KEY)).toBe('1');
 });

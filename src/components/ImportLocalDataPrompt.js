@@ -1,25 +1,21 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
-import { isServerMode } from '../storage/createStorage';
 import useAuthStore from '../storage/authStore';
 import {
-  hasLocalData, importLocalData, buildLocalBackup, IMPORT_DECLINED_KEY, IMPORT_DONE_KEY
+  collectLocalRecords, importLocalData, buildLocalBackup, IMPORT_DECLINED_KEY, IMPORT_DONE_KEY
 } from '../storage/importLocalData';
 import { downloadJSON } from '../utils/dataExport';
 
-const flagged = () => {
-  try { return !!(localStorage.getItem(IMPORT_DECLINED_KEY) || localStorage.getItem(IMPORT_DONE_KEY)); } catch { return false; }
-};
 const setFlag = (key) => { try { localStorage.setItem(key, '1'); } catch { /* best effort */ } };
 
-export default function ImportLocalDataPrompt() {
+// Full-screen blocking step shown by AuthGate before the app mounts (so seed effects cannot fill
+// the workspace first). AuthGate decides whether it is needed; `onResolved` lets the app mount.
+export default function ImportLocalDataPrompt({ onResolved }) {
   const userId = useAuthStore((s) => s.user)?.id;
-  const [hidden, setHidden] = useState(false);
   const [busy, setBusy] = useState(false);
   const [backupReady, setBackupReady] = useState(false);
-  const [show] = useState(() => isServerMode() && !flagged() && hasLocalData());
-
-  if (!show || hidden) return null;
+  const [needsReload, setNeedsReload] = useState(null);
+  const [problemCount] = useState(() => collectLocalRecords().problems.length);
 
   const backup = () => {
     try {
@@ -31,7 +27,7 @@ export default function ImportLocalDataPrompt() {
     }
   };
 
-  const notNow = () => { setFlag(IMPORT_DECLINED_KEY); setHidden(true); };
+  const notNow = () => { setFlag(IMPORT_DECLINED_KEY); onResolved(); };
 
   const doImport = async () => {
     if (busy) return;
@@ -39,13 +35,21 @@ export default function ImportLocalDataPrompt() {
     try {
       const res = await importLocalData({ userId });
       setFlag(IMPORT_DONE_KEY);
-      setHidden(true);
       toast.success(`Imported ${res?.imported ?? 0} records`);
+      onResolved();
     } catch (err) {
-      if (err?.status === 409 && err?.body?.error === 'workspace-not-empty') {
+      if (err?.refreshFailed) {
+        setFlag(IMPORT_DONE_KEY);
+        const n = err.result?.imported ?? 0;
+        toast.success(`Imported ${n} records. Reload the page to see them.`);
+        setNeedsReload(n);
+      } else if (err?.status === 409 && err?.body?.error === 'workspace-not-empty') {
         setFlag(IMPORT_DECLINED_KEY);
-        setHidden(true);
         toast.error("This workspace already has data, so your browser's data was not imported. It is still saved in this browser.");
+        onResolved();
+      } else if (err?.status === 413) {
+        toast.error('Your browser data is too large to import in one step (limit 25 MB).');
+        setBusy(false);
       } else {
         toast.error('Import failed. Your browser data was not changed.');
         setBusy(false);
@@ -53,13 +57,41 @@ export default function ImportLocalDataPrompt() {
     }
   };
 
-  return (
-    <div role="dialog" aria-label="Import this browser's data" className="fixed bottom-4 right-4 z-40 max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-lg border p-4 space-y-3">
-      <h2 className="text-base font-semibold">Import this browser&apos;s data into the server?</h2>
+  const shell = (children) => (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
+      <div role="region" aria-labelledby="import-local-heading" className="max-w-lg w-full bg-white dark:bg-gray-800 rounded-lg shadow border p-6 space-y-4">
+        {children}
+      </div>
+    </div>
+  );
+
+  if (needsReload !== null) {
+    return shell(
+      <>
+        <h2 id="import-local-heading" className="text-lg font-semibold">Imported {needsReload} records</h2>
+        <p className="text-sm">Your data is saved on the server, but this page could not refresh itself. Reload the page to see it.</p>
+        <div className="flex justify-end">
+          <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={() => window.location.reload()}>Reload</button>
+        </div>
+      </>
+    );
+  }
+
+  return shell(
+    <>
+      <h2 id="import-local-heading" className="text-lg font-semibold">Import this browser&apos;s data into the server?</h2>
       <p className="text-sm">
-        This browser has assessment data saved locally. You can copy it into the shared workspace.
-        Your browser copy is kept either way. Only an empty workspace accepts an import.
+        This browser has assessment data saved locally and the shared workspace is empty. You can copy your
+        data into the workspace now. Your browser copy is kept either way, and only an empty workspace accepts an import.
       </p>
+      <p className="text-sm">
+        The backup is a raw copy of this browser&apos;s data (not restorable through Settings → Import).
+      </p>
+      {problemCount > 0 && (
+        <p role="alert" className="text-sm text-amber-700 dark:text-amber-400">
+          {problemCount} item(s) in this browser&apos;s data cannot be synced (missing or duplicate id) and will stay only in this browser.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2 justify-end">
         <button className="px-3 py-1 border rounded" disabled={busy} onClick={backup}>Download a backup first</button>
         {!backupReady && (
@@ -68,6 +100,6 @@ export default function ImportLocalDataPrompt() {
         <button className="px-3 py-1 border rounded" disabled={busy} onClick={notNow}>Not now</button>
         <button className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50" disabled={busy || !backupReady} onClick={doImport}>Import into server</button>
       </div>
-    </div>
+    </>
   );
 }
