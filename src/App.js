@@ -9,6 +9,8 @@ import FirstVisitWarning from './components/FirstVisitWarning';
 import BackupReminder from './components/BackupReminder';
 import Toolbar from './components/Toolbar';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';
+import AuthGate from './components/AuthGate';
+import SyncConflictDialog from './components/SyncConflictDialog';
 import { SkeletonTable } from './components/SkeletonLoader';
 
 // Hooks
@@ -169,37 +171,41 @@ const AppContent = () => {
 const App = () => {
   return (
     <ErrorBoundary>
-      <Router>
-        <AppContent />
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            duration: 3000,
-            className: 'app-toast',
-            style: {
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: 'var(--radius-lg)',
-              fontSize: '13px',
-              padding: '10px 14px',
-              boxShadow: 'var(--shadow-lg)',
+      <AuthGate>
+        <Router>
+          <AppContent />
+          <SyncConflictDialog />
+        </Router>
+      </AuthGate>
+      {/* Outside the gate so toasts work on the login screen */}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          duration: 3000,
+          className: 'app-toast',
+          style: {
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            fontSize: '13px',
+            padding: '10px 14px',
+            boxShadow: 'var(--shadow-lg)',
+          },
+          success: {
+            iconTheme: {
+              primary: 'var(--terminal-green)',
+              secondary: 'var(--bg-secondary)',
             },
-            success: {
-              iconTheme: {
-                primary: 'var(--terminal-green)',
-                secondary: 'var(--bg-secondary)',
-              },
+          },
+          error: {
+            iconTheme: {
+              primary: 'var(--terminal-red)',
+              secondary: 'var(--bg-secondary)',
             },
-            error: {
-              iconTheme: {
-                primary: 'var(--terminal-red)',
-                secondary: 'var(--bg-secondary)',
-              },
-            },
-          }}
-        />
-      </Router>
+          },
+        }}
+      />
     </ErrorBoundary>
   );
 };

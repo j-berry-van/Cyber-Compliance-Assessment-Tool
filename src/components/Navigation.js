@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import useUserStore from '../stores/userStore';
+import useAuthStore from '../storage/authStore';
+import { isServerMode } from '../storage/createStorage';
 import {
   LayoutDashboard,
   Users,
@@ -120,6 +122,19 @@ const ActingUserSelect = () => {
   );
 };
 
+// Server mode only: who is signed in, and a way out.
+const SessionControls = () => {
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  if (!isServerMode()) return null;
+  return (
+    <div className="app-acting-user">
+      <span className="app-acting-user-label">Signed in as {user?.displayName ?? ''}</span>
+      <button type="button" className="app-nav-item" onClick={() => logout()}>Sign out</button>
+    </div>
+  );
+};
+
 const Brand = () => (
   <div className="app-sidebar-brand">
     <div className="terminal-logo-disc">
@@ -183,6 +198,7 @@ const Navigation = () => {
           <NavGroups pathname={pathname} />
         </nav>
         <ActingUserSelect />
+        <SessionControls />
       </aside>
 
       {/* Drawer trigger — only visible below 1024px (see CSS). */}
@@ -213,6 +229,8 @@ const Navigation = () => {
               <NavGroups pathname={pathname} onNavigate={closeDrawer} />
             </nav>
             <ActingUserSelect />
+            <SessionControls />
+        <SessionControls />
           </div>
         </div>
       )}
