@@ -2,17 +2,23 @@
 
 The full-featured way to use the CSF Profile Assessment Database: run the React + Tauri desktop app locally and assess directly inside it. Best when you want the polished UI, live scoring, CSV export, and the built-in assessment workflow.
 
-This is one of three ways to use the CSF Profile Assessment Database:
+**Which mode do you get?** Everything on this page installs the **local / desktop** mode: one person, data kept in that
+browser or app, nothing uploaded. If a team needs one shared workspace with accounts, that is the separate
+**self-hosted multi-user** mode, which you run on your own server: see [docs/SELF_HOSTING.md](../docs/SELF_HOSTING.md)
+and the [multi-user guide](../docs/MULTI_USER.md).
+
+This is one of several ways to use the CSF Profile Assessment Database:
 
 | Folder | When to use it |
 |---|---|
 | **`INSTALL_THE_APP/`** *(you are here)* | Run the desktop app locally. Recommended for active assessments. |
+| [`docs/SELF_HOSTING.md`](../docs/SELF_HOSTING.md) | A team on its own server: shared workspace, accounts, data saved to a SQLite file you control. |
 | `GET_THE_SPREADSHEETS/` | You just want CSV/Excel artifacts to work in spreadsheets. |
 | `GET_THE_NOTION_TEMPLATE/` | You prefer to assess inside Notion. Quick-start bundle and import guide. |
 
 ## Install from your browser (no toolchain)
 
-The web app is a Progressive Web App: open a **production copy** in Chrome or Edge — a hosted deployment, or a local build served with `npm run build` then `npx serve -s build` — and click the **install icon** in the address bar (or menu → *Install CSF Profile Assessment*). You get a standalone app window, a launcher/dock icon, and offline support: after the first visit the app opens and runs with no connection. (The `npm start` dev server deliberately skips the offline worker so hot reload never fights a cache.) Your data already lives entirely in your browser's local storage, so nothing about installing changes where data goes.
+The web app is a Progressive Web App: open a **production copy** in Chrome or Edge — a hosted deployment, or a local build served with `npm run build` then `npx serve -s build` — and click the **install icon** in the address bar (or menu → *Install CSF Profile Assessment*). You get a standalone app window, a launcher/dock icon, and offline support: after the first visit the app opens and runs with no connection. (The `npm start` dev server deliberately skips the offline worker so hot reload never fights a cache.) In this local mode your data lives in your browser's local storage, so nothing about installing changes where data goes. (If you install a copy served by a team's multi-user server instead, your data lives on that server and you sign in; see the self-hosting guide.)
 
 This is the fastest path on machines where you can't install Node or Rust — nothing to build, nothing to run as admin.
 

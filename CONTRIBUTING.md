@@ -84,10 +84,13 @@ src/
 ├── components/    # Reusable UI components
 ├── hooks/         # Custom React hooks
 ├── pages/         # Page-level components
+├── storage/       # Persistence layer: localStorage vs. server sync (see "Persisted stores")
 ├── stores/        # Zustand state management
 ├── utils/         # Utility functions
 └── App.js         # Main application entry
 public/            # Static assets and templates
+server/            # Express server: AI proxy, plus accounts/SQLite in multi-user mode
+docs/              # SELF_HOSTING.md, MULTI_USER.md, design specs
 ```
 
 ## Pull Request Process
@@ -146,6 +149,30 @@ npm test -- --coverage
 npm test -- --watchAll=false
 ```
 
+### Server tests
+
+The server (`server/`) has its own tests, which use Node's built-in test runner (Node 18+):
+
+```bash
+cd server
+npm ci
+npm test
+```
+
+### Running in server (multi-user) mode locally
+
+```bash
+# Terminal 1: build the client in server mode, then run the server (serves the build on port 4000)
+REACT_APP_SERVER_MODE=true INLINE_RUNTIME_CHUNK=false npm run build
+cd server && npm ci && MULTIUSER=true STATIC_DIR=../build DATA_DIR=/tmp/csf-dev node index.js
+# open http://localhost:4000 and create the admin account
+```
+
+Use a throwaway `DATA_DIR` while developing. The details, env vars and Docker are in [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
+Most client tests run in local mode; tests that cover mode-specific behaviour set `process.env.REACT_APP_SERVER_MODE`
+themselves and restore it afterwards. `better-sqlite3` is pinned to `^11` in `server/package.json` because it must run
+on Node 18; do not bump it without also moving the supported Node version.
+
 ### Test Requirements
 
 - Unit tests for utility functions
@@ -193,11 +220,27 @@ When adding new state:
 3. Use selectors for derived state
 4. Document any complex state interactions
 
+### Persisted stores (multi-user mode)
+
+Every persisted zustand store (anything created with `persist(...)` and a `name`) must be given an explicit decision in
+`src/storage/storeConfigs.js`: either which collections sync to the server (and their unique key per item), plus any
+`localFields` that stay per-browser, or `local: true` for a store that is per-browser in every mode. Create the store's
+storage with `createStorage('<store name>')` from `src/storage/createStorage.js`. Synced stores must also be registered
+in `src/storage/registerStores.js` so they refresh when other people's changes arrive.
+
+Add the store's name to `ALL_PERSIST_NAMES` in `src/storage/storeConfigs.test.js` (and to the `loaders` map if it
+syncs), so the suite proves it has a decision and that its default data has unique keys. Likewise update
+`registerStores.test.js`. A synced collection item needs a stable unique id; items without one cannot be synced.
+
+User-facing wording that depends on where data lives ("saved in your browser" versus "saved to the server") must be
+gated on `isServerMode()` and tested in both modes (see `src/utils/modeCopy.js`).
+
 ## Documentation
 
 - Update README.md for new features
 - Include usage examples for new functionality
 - Update SCREENSHOTS.md if UI changes significantly
+- If you change anything about where data is stored or who can see it, update PRIVATE_DATA.md, SECURITY.md and docs/SELF_HOSTING.md too
 - Keep documentation current with code changes
 
 ## Security Considerations

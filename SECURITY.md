@@ -51,9 +51,10 @@ Sanitize input using DOMPurify before rendering...
 
 ### Data Storage
 
-- All assessment data is stored locally in the browser (IndexedDB/localStorage)
-- No data is transmitted to external servers by default
-- Users are responsible for securing their local machines
+- **Local / desktop mode (default):** all assessment data is stored locally in the browser (localStorage)
+- **Self-hosted multi-user mode:** assessment data, including the organization profile, is stored in a SQLite database on the server you run (see the multi-user section below)
+- In neither mode is data sent to a server operated by this project. The only outbound call the app can make is the optional AI proxy, if you configure a key
+- Users (or the server's administrator) are responsible for securing the machines that hold the data
 - Exported CSV files may contain sensitive assessment data
 
 ### Input Validation
@@ -73,10 +74,51 @@ Sanitize input using DOMPurify before rendering...
 
 ### Browser Security
 
-- Application runs entirely client-side
-- No authentication required (single-user local application)
+- Local mode: the application runs entirely client-side, with no authentication (single-user local application)
+- Multi-user mode: the client talks to your server and every request needs a signed-in session (see below)
 - Browser security policies apply
 - Local storage accessible only from the same origin
+
+### Multi-user (server) mode threat model
+
+Multi-user mode is built for a team that trusts each other with one shared workspace and runs its own server. Setup
+instructions are in [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
+
+What the server does:
+
+- **Accounts:** created only by an administrator; there is no self-signup. The one exception is first-run setup, which
+  creates the administrator and is refused once any account exists. Run it before exposing the server.
+- **Password storage:** salted scrypt via Node's built-in `crypto` (no native hashing dependency), minimum 10 characters.
+  Unknown usernames cost the same hashing work as known ones to blunt username enumeration by timing.
+- **Sessions:** random 256-bit tokens, stored only as SHA-256 hashes in the database, valid 14 days and extended on
+  use. The cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` when `COOKIE_SECURE=true` or when `TRUST_PROXY=true` and the
+  proxy reports https. Disabling an account or an administrator resetting its password ends its sessions.
+- **CSRF:** `SameSite=Lax` plus a rule that state-changing requests must be `application/json`, which a cross-site
+  form post cannot send.
+- **Rate limiting:** sign-in and setup allow 20 attempts per 15 minutes per IP; the AI proxy has its own per-IP limit.
+  Behind a proxy set `TRUST_PROXY=true`, otherwise every client shares the proxy's IP.
+- **Authorization:** all data endpoints require a session; account management requires an administrator; the last
+  active administrator cannot be disabled. There is **no per-assessment access control**: every active account can read
+  and change every assessment, finding, comment and the organization profile.
+- **Attribution:** the server records which account last changed each record. Comment and audit-entry author names come
+  from the "acting user" selector in the app, which a signed-in person can still change, so they are not proof of
+  authorship.
+- **Transport:** run it behind HTTPS (for example Caddy or nginx terminating TLS). Without HTTPS, passwords and session
+  cookies cross the network in clear text.
+
+What you are responsible for:
+
+- **All data in one file.** Everything, including the organization profile (crown jewels, security tooling) and password
+  hashes, lives in `DATA_DIR/csf.db`. Restrict its file permissions to the server's user, encrypt the disk or backups as
+  your policy requires, and back it up (`sqlite3 ... ".backup ..."`; see the self-hosting guide).
+- **Admin password recovery** is done by someone with shell access to the host, who can also read the database. Host
+  access is therefore equivalent to full access to the data.
+- Keep Node.js, the dependencies and the host patched.
+
+Supported AI-proxy configuration: in multi-user mode `/api/ai/*` requires a signed-in session and is rate limited, and
+the Claude API key stays in the server's environment (the browser never sees it). Running the proxy without accounts
+(local mode with the optional backend) is a single-user, localhost setup: do not expose that backend to an untrusted
+network, because it has no authentication.
 
 ## AI-Assisted Security Review
 
@@ -144,7 +186,7 @@ We don't currently offer a formal bug bounty program, but we deeply appreciate s
 
 ### Data Handling
 
-- Regularly back up your assessment data via CSV export
+- Regularly back up your assessment data via CSV export (local mode). In multi-user mode the administrator backs up the server database; see [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)
 - Store exported files securely with appropriate access controls
 - Do not share assessment exports containing sensitive findings publicly
 - Clear browser data when assessments are complete if using shared machines
