@@ -6,6 +6,7 @@ import aiRoutes from './routes/ai.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import recordRoutes from './routes/records.js';
+import importRoutes from './routes/import.js';
 import { requireJson, sessionMiddleware, requireAuth } from './middlewares/auth.js';
 import { apiLimiter } from './utils/rateLimiter.js';
 
@@ -45,7 +46,7 @@ export function createApp({ db = null, staticDir = null } = {}) {
     app.use('/api/auth', authRoutes(db));
     app.use('/api/users', userRoutes(db));
     app.use('/api/records', recordRoutes(db));
-    // import routers are mounted below by later tasks
+    app.use('/api/import', importRoutes(db));
     app.use('/api/ai', requireAuth); // in multi-user mode the AI proxy requires a session
   }
   app.use('/api/ai', apiLimiter, aiRoutes);
