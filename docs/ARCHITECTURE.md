@@ -10,11 +10,11 @@ pieces connect and what not to break. Setup and usage live elsewhere: [SELF_HOST
 | Mode | Where data lives | How it runs |
 |---|---|---|
 | Local / PWA | Browser localStorage | `npm start`, or the hosted demo |
-| Desktop | localStorage inside the Tauri shell | `npm run desktop` (`src-tauri/`, wraps the `build/` output) |
+| Desktop | localStorage inside the Tauri shell | `npm run desktop` (dev) or `npm run desktop:build` (wraps `build/`); see `src-tauri/` |
 | Multi-user | One SQLite file on your server | Client built with `REACT_APP_SERVER_MODE=true`; `server/` run with `MULTIUSER=true` |
 
 The mode is fixed **when the client is built**. A normal build never talks to the server, and a server-mode build
-always expects it. Local and desktop modes need no server at all.
+always expects it. Local and desktop modes need no server, apart from the optional Claude AI proxy (`/api/ai`).
 
 ## Layout
 
@@ -36,18 +36,24 @@ people's changes and rehydrates stores through `rehydrateOnRemote.js`.
 
 Each record has a `version`. A save carries the `baseVersion` it was edited from and the server refuses a stale one.
 The client then tries `merge3(base, mine, theirs)` (`merge.js`): different fields combine; the same field changed to
-different values becomes a conflict that `SyncConflictDialog` puts to the person.
+different values becomes a conflict that `SyncConflictDialog` puts to the person. Store-level `:state` records
+(non-collection fields such as the organization profile) are the exception: they are force-written, last writer wins,
+with no conflict dialog.
 
 ## Invariants (do not break)
 
-Each is enforced in `src/storage/syncEngine.js` or `serverStorage.js` and pinned by tests next to them.
+Each has a test next to the code that enforces it.
 
-- Local mode never contacts the server.
-- A store whose saved data cannot be adopted (version mismatch with no `migrate`) is not written, because the next
-  write would overwrite or delete the whole team's records.
-- The outbox is per user and per tab: a tab only sends its own entries.
-- 408 and 429 are retried; other 4xx responses (except 401 and 409) are permanent and surfaced, not retried.
-- Sign-out flushes pending writes before the session ends; a password change or reset revokes sessions.
+- Local mode never syncs or uploads stored data (`createStorage.js`: no server mode, no server storage). Only the
+  optional AI proxy is ever called.
+- A store whose saved data cannot be adopted (version mismatch with no `migrate`) is not written (`serverStorage.js`),
+  because the next write would overwrite or delete the whole team's records.
+- The outbox is keyed per user; a tab never overwrites another tab's queued entries, and a newly loaded tab adopts
+  whatever is left (`syncEngine.js`).
+- 408 and 429 are retried; other 4xx responses (except 401 and 409) are permanent and surfaced, not retried
+  (`syncEngine.js`).
+- Sign-out flushes pending writes first (`authStore.js`). A password change revokes the user's other sessions; an
+  admin reset or disable revokes all of them (`server/routes/auth.js`, `server/routes/users.js`).
 
 ## Security boundaries
 
