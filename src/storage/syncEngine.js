@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api, ApiError } from './serverClient';
 import { recordKey, isStateRecord, storeNameOf } from './diff';
+import { merge3, deepEqual } from './merge';
 
 let userId = 'anonymous';
 const outboxKey = () => `csf-sync-outbox:${userId}`;
@@ -151,8 +152,11 @@ const queue = (collection, id, op, data) => {
   const key = recordKey(collection, id);
   if (conflicts.has(key)) { conflicts.get(key).mine = op === 'put' ? data : null; persistConflicts(); return; }
   const prev = outbox.get(key);
-  const baseVersion = prev ? prev.baseVersion : (cache.get(key)?.version ?? 0);
-  outbox.set(key, { collection, id, op, data: op === 'put' ? data : null, baseVersion });
+  const have = cache.get(key);
+  const baseVersion = prev ? prev.baseVersion : (have?.version ?? 0);
+  // What the editor started from, so a version conflict can be merged field by field.
+  const base = prev ? prev.base : (have && !have.deleted ? have.data : undefined);
+  outbox.set(key, { collection, id, op, data: op === 'put' ? data : null, baseVersion, base });
 };
 
 export function enqueue({ puts = [], deletes = [] }) {
@@ -181,6 +185,7 @@ async function runFlush() {
   flushing = true;
   let failed = false;
   let rejected = 0;
+  const mergedCollections = new Set();
   refreshStatus({ state: 'saving' });
   try {
     for (const [key, op] of [...outbox]) {
@@ -213,16 +218,32 @@ async function runFlush() {
           if (have && have.version > theirs.version) theirs = have;
           else cache.set(key, entryOf({ collection: op.collection, id: op.id, ...theirs }));
         }
+        const mine = newest.op === 'put' ? newest.data : null;
+        const theirData = theirs && !theirs.deleted ? theirs.data : null;
+        if (deepEqual(mine, theirData)) { // both sides ended up identical: adopt the server's copy
+          if (outbox.get(key) === newest) outbox.delete(key);
+          continue;
+        }
+        if (newest.op === 'put' && theirs && !theirs.deleted && newest.base !== undefined) {
+          const merged = merge3(newest.base, newest.data, theirs.data);
+          if (merged.ok) { // different fields changed: combine and send again on top of their version
+            outbox.set(key, { ...newest, data: merged.value, baseVersion: theirs.version, base: theirs.data });
+            mergedCollections.add(op.collection);
+            rerun = true;
+            continue;
+          }
+        }
         conflicts.set(key, {
           key, collection: op.collection, id: op.id,
-          mine: newest.op === 'put' ? newest.data : null,
-          theirs: theirs && !theirs.deleted ? theirs.data : null,
+          mine,
+          theirs: theirData,
           theirsVersion: theirs?.version ?? 0
         });
         outbox.delete(key);
         persistConflicts();
       }
     }
+    if (mergedCollections.size) emit(mergedCollections); // stores pick up the merged result
     backoff = 0;
     setSyncProblem('flush', rejected ? `${rejected} change(s) could not be saved (rejected by the server)` : null);
     refreshStatus({ state: 'idle', lastSaved: Date.now() });
@@ -272,7 +293,7 @@ export function resolveConflict(key, choice) {
   conflicts.delete(key);
   persistConflicts();
   if (choice === 'mine') {
-    outbox.set(key, { collection: c.collection, id: c.id, op: c.mine === null ? 'delete' : 'put', data: c.mine, baseVersion: c.theirsVersion });
+    outbox.set(key, { collection: c.collection, id: c.id, op: c.mine === null ? 'delete' : 'put', data: c.mine, baseVersion: c.theirsVersion, base: c.theirs ?? undefined });
     persistOutbox();
     refreshStatus();
     scheduleFlush(cfg.debounceMs);

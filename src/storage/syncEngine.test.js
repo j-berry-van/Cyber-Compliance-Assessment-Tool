@@ -506,3 +506,53 @@ test('flushNow resolves only after the flush in progress completes', async () =>
   await p;
   expect(engine.useSyncStatus.getState().pending).toBe(0);
 });
+
+describe('conflict auto-resolution', () => {
+  const conflict409 = (current) => new ApiError(409, { error: 'conflict', current });
+  const edit = (data) => engine.enqueue({ puts: [{ collection: 'c', id: 'a', data }], deletes: [] });
+
+  test('edits to different fields are merged and re-sent on top of their version, with no dialog', async () => {
+    await boot([rec('c', 'a', { x: 1, y: 1 }, 1)]);
+    const heard = jest.fn();
+    engine.onRemoteChange(heard);
+    api.mockRejectedValueOnce(conflict409({ data: { x: 1, y: 2 }, version: 2, deleted: false }))
+      .mockResolvedValue({ version: 3, rev: 9 });
+    edit({ x: 5, y: 1 });
+    await advance(500);
+    await advance(600);
+    const puts = api.mock.calls.filter(([m]) => m === 'PUT');
+    expect(puts).toHaveLength(2);
+    expect(puts[1][2]).toMatchObject({ data: { x: 5, y: 2 }, baseVersion: 2 });
+    expect(engine.useSyncStatus.getState().conflicts).toEqual([]);
+    expect(engine.useSyncStatus.getState().pending).toBe(0);
+    expect(heard).toHaveBeenCalled();
+  });
+
+  test('both sides ending with identical content adopts theirs silently (nothing re-sent)', async () => {
+    await boot([rec('c', 'a', { x: 1 }, 1)]);
+    api.mockRejectedValueOnce(conflict409({ data: { x: 2 }, version: 2, deleted: false })).mockResolvedValue({ version: 3, rev: 9 });
+    edit({ x: 2 });
+    await advance(500);
+    await advance(600);
+    expect(api.mock.calls.filter(([m]) => m === 'PUT')).toHaveLength(1);
+    expect(engine.useSyncStatus.getState().conflicts).toEqual([]);
+    expect(engine.useSyncStatus.getState().pending).toBe(0);
+  });
+
+  test('the same field changed differently still raises a conflict', async () => {
+    await boot([rec('c', 'a', { x: 1 }, 1)]);
+    api.mockRejectedValueOnce(conflict409({ data: { x: 3 }, version: 2, deleted: false }));
+    edit({ x: 2 });
+    await advance(500);
+    expect(engine.useSyncStatus.getState().conflicts).toHaveLength(1);
+    expect(engine.useSyncStatus.getState().conflicts[0]).toMatchObject({ mine: { x: 2 }, theirs: { x: 3 } });
+  });
+
+  test('without a recorded base (older outbox entry) a differing record still raises a conflict', async () => {
+    localStorage.setItem('csf-sync-outbox:anonymous', JSON.stringify([{ collection: 'c', id: 'a', op: 'put', data: { x: 2 }, baseVersion: 1 }]));
+    await boot([rec('c', 'a', { x: 1 }, 1)]);
+    api.mockRejectedValueOnce(conflict409({ data: { x: 3 }, version: 2, deleted: false }));
+    await advance(10);
+    expect(engine.useSyncStatus.getState().conflicts).toHaveLength(1);
+  });
+});

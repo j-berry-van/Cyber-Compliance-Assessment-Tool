@@ -1,12 +1,6 @@
 import React from 'react';
 import { useSyncStatus, resolveConflict } from '../storage/syncEngine';
-
-const preview = (v) => {
-  if (v == null) return '(deleted)';
-  const text = JSON.stringify(v, null, 2);
-  if (text === undefined) return '(deleted)';
-  return text.length > 600 ? `${text.slice(0, 600)}…` : text;
-};
+import { diffPaths } from '../storage/merge';
 
 export default function SyncConflictDialog() {
   const conflicts = useSyncStatus((s) => s.conflicts);
@@ -20,9 +14,24 @@ export default function SyncConflictDialog() {
           A teammate saved <code>{c.collection.split('.').pop()}</code> “{c.id}” while you were editing it
           ({conflicts.length} conflict{conflicts.length > 1 ? 's' : ''} to review).
         </p>
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div><div className="font-semibold mb-1">Yours</div><pre className="bg-gray-100 dark:bg-gray-900 p-2 overflow-auto max-h-64">{preview(c.mine)}</pre></div>
-          <div><div className="font-semibold mb-1">Theirs</div><pre className="bg-gray-100 dark:bg-gray-900 p-2 overflow-auto max-h-64">{preview(c.theirs)}</pre></div>
+        <div className="text-xs">
+          <div className="font-semibold mb-1">Fields that differ</div>
+          {c.mine == null || c.theirs == null
+            ? <p>{c.mine == null ? 'You deleted this record, but a teammate changed it.' : 'A teammate deleted this record, but you changed it.'}</p>
+            : (
+              <table className="w-full text-left">
+                <thead><tr><th className="pr-2">Field</th><th className="pr-2">Yours</th><th>Theirs</th></tr></thead>
+                <tbody>
+                  {diffPaths(c.mine, c.theirs).map((d) => (
+                    <tr key={d.path} className="align-top">
+                      <td className="pr-2 font-mono break-all">{d.path}</td>
+                      <td className="pr-2 font-mono break-all">{d.mine}</td>
+                      <td className="font-mono break-all">{d.theirs}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
         </div>
         <div className="flex justify-end gap-2">
           <button className="px-3 py-1 border rounded" onClick={() => resolveConflict(c.key, 'theirs')}>Take theirs</button>

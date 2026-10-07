@@ -69,7 +69,7 @@ directory, so start it from `server/`.
 | `PORT` | `4000` | Port to listen on. |
 | `DATA_DIR` | `./data` | Directory for `csf.db` (created if missing). Needs read/write for the server user. |
 | `STATIC_DIR` | unset | Directory of the built app (`../build`). When unset the server serves only the API. |
-| `COOKIE_SECURE` | `false` | `true` marks the session cookie `Secure`. Set it whenever the site is served over HTTPS. |
+| `COOKIE_SECURE` | `false` | `true` marks the session cookie `Secure`. Set it whenever the site is served over HTTPS. Setting it (or `TRUST_PROXY=true`) also turns on the `upgrade-insecure-requests` security header; without either, a plain-`http://` trial works on a LAN. |
 | `TRUST_PROXY` | unset | `true` makes the server trust one proxy hop (`X-Forwarded-Proto`, `X-Forwarded-For`). Set it behind a reverse proxy: it makes the cookie `Secure` when the proxy reports https, and it makes login rate limiting count each client's own IP instead of the proxy's. |
 | `ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated browser origins allowed to call the API cross-origin. Not needed when the app and API share one origin (the normal setup). |
 | `REACT_APP_API_URL` | empty (same origin) | **Build-time.** Base URL the client uses for `/api`. Leave empty when the server serves the app. If you split them, keep both on the same site (the session cookie is `SameSite=Lax`) and list the app's origin in `ALLOWED_ORIGINS`. |

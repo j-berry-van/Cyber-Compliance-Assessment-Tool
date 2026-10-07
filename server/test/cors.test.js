@@ -34,3 +34,24 @@ test('an unparseable Origin is refused', async () => {
   const { app } = makeApp();
   await request(app).get('/api/auth/status').set('Origin', 'not a url').expect(403);
 });
+
+const csp = async () => {
+  const { app } = makeApp();
+  const res = await request(app).get('/api/auth/status');
+  return res.headers['content-security-policy'];
+};
+
+test('plain-HTTP deployments do not tell the browser to upgrade requests to https', async () => {
+  delete process.env.COOKIE_SECURE; delete process.env.TRUST_PROXY;
+  assert.ok(!(await csp()).includes('upgrade-insecure-requests'));
+});
+
+test('HTTPS deployments (COOKIE_SECURE or TRUST_PROXY) keep upgrade-insecure-requests', async () => {
+  try {
+    process.env.COOKIE_SECURE = 'true';
+    assert.ok((await csp()).includes('upgrade-insecure-requests'));
+    delete process.env.COOKIE_SECURE;
+    process.env.TRUST_PROXY = 'true';
+    assert.ok((await csp()).includes('upgrade-insecure-requests'));
+  } finally { delete process.env.COOKIE_SECURE; delete process.env.TRUST_PROXY; }
+});

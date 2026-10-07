@@ -23,23 +23,30 @@ test('buttons resolve the first conflict', async () => {
   act(() => { useSyncStatus.setState({ conflicts: [conflict] }); });
   render(<SyncConflictDialog />);
   expect(screen.getByRole('dialog')).toBeInTheDocument();
-  expect(screen.getByText('(deleted)')).toBeInTheDocument();
+  expect(screen.getByText(/a teammate deleted this record, but you changed it/i)).toBeInTheDocument();
   userEvent.click(screen.getByRole('button', { name: /keep mine/i }));
   expect(engine.resolveConflict).toHaveBeenLastCalledWith('k1', 'mine');
   userEvent.click(screen.getByRole('button', { name: /take theirs/i }));
   expect(engine.resolveConflict).toHaveBeenLastCalledWith('k1', 'theirs');
 });
 
-describe('preview robustness', () => {
+describe('field-level preview', () => {
   const show = (c) => { act(() => { useSyncStatus.setState({ conflicts: [{ ...conflict, ...c }] }); }); return render(<SyncConflictDialog />); };
-  test('undefined and null render as deleted without throwing', () => {
+  test('undefined and null never throw and say which side deleted the record', () => {
     show({ mine: undefined, theirs: null });
-    expect(screen.getAllByText('(deleted)')).toHaveLength(2);
+    expect(screen.getByText(/you deleted this record/i)).toBeInTheDocument();
+  });
+  test('lists only the fields that differ, with both values', () => {
+    show({ mine: { title: 'same', status: 'open', n: 1 }, theirs: { title: 'same', status: 'closed', n: 1 } });
+    expect(screen.getByText('status')).toBeInTheDocument();
+    expect(screen.getByText('"open"')).toBeInTheDocument();
+    expect(screen.getByText('"closed"')).toBeInTheDocument();
+    expect(screen.queryByText('title')).not.toBeInTheDocument();
   });
   test('long values are truncated with an ellipsis', () => {
-    show({ mine: { text: 'x'.repeat(2000) } });
-    const pre = screen.getAllByText(/xxxx/)[0];
-    expect(pre.textContent.length).toBe(601);
-    expect(pre.textContent.endsWith('…')).toBe(true);
+    show({ mine: { text: 'x'.repeat(2000) }, theirs: { text: 'y' } });
+    const cell = screen.getByText(/xxxx/);
+    expect(cell.textContent.endsWith('…')).toBe(true);
+    expect(cell.textContent.length).toBeLessThan(100);
   });
 });
