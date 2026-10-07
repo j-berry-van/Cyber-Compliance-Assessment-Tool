@@ -16,6 +16,7 @@ import EmptyState from '../components/EmptyState';
 import Markdown from '../components/Markdown';
 import RecordPanel, { CommentsButton } from '../components/RecordPanel';
 import { formatInlineMarkdown } from '../utils/markdownText';
+import useResizablePanel from '../hooks/useResizablePanel';
 
 const Findings = () => {
   const navigate = useNavigate();
@@ -70,9 +71,8 @@ const Findings = () => {
   // Comments/History panel for the open finding
   const [recordPanelOpen, setRecordPanelOpen] = useState(false);
 
-  // Panel resize state
-  const [panelWidth, setPanelWidth] = useState(480);
-  const [isResizing, setIsResizing] = useState(false);
+  // Detail panel is pinned to the right edge; width is draggable and remembered (see useResizablePanel)
+  const detailPanel = useResizablePanel({ key: 'findings', unit: 'px', defaultPx: 480, minPx: 380, maxPx: 900 });
 
   // Handle URL query parameter for deep linking to a specific finding
   useEffect(() => {
@@ -93,38 +93,6 @@ const Findings = () => {
       }
     }
   }, [searchParams, findings, setSearchParams, scopeFilter]);
-
-  // Resize handlers
-  const handleMouseDown = useCallback((e) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, []);
-
-  const handleMouseMove = useCallback((e) => {
-    if (!isResizing) return;
-    const newWidth = window.innerWidth - e.clientX;
-    setPanelWidth(Math.max(380, Math.min(900, newWidth)));
-  }, [isResizing]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsResizing(false);
-  }, []);
-
-  // Add/remove event listeners for resize
-  useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    }
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   // Keyboard shortcut: 'n' to create new finding
   useEffect(() => {
@@ -656,7 +624,7 @@ const Findings = () => {
         {(selectedFinding || editMode) && (
           <div
             style={{
-              width: `${panelWidth}px`,
+              ...detailPanel.panelStyle,
               position: 'fixed',
               top: 0,
               right: 0,
@@ -668,19 +636,9 @@ const Findings = () => {
           >
             {/* Resize Handle */}
             <div
-              onMouseDown={handleMouseDown}
-              style={{
-                position: 'absolute',
-                left: '-4px',
-                top: 0,
-                bottom: 0,
-                width: '8px',
-                cursor: 'col-resize',
-                zIndex: 10
-              }}
-              className={`transition-colors ${isResizing ? 'bg-blue-500' : 'bg-gray-300 hover:bg-blue-400 dark:bg-gray-500 dark:hover:bg-blue-500'
+              {...detailPanel.separatorProps}
+              className={`transition-colors ${detailPanel.isDragging ? 'bg-blue-500' : 'bg-gray-300 hover:bg-blue-400 dark:bg-gray-500 dark:hover:bg-blue-500'
                 }`}
-              title="Drag to resize"
             />
 
             <div className="flex-1 overflow-auto p-6">
