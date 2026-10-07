@@ -23,6 +23,7 @@ import useRequirementsStore from '../stores/requirementsStore';
 import useFrameworksStore from '../stores/frameworksStore';
 import useUserStore from '../stores/userStore';
 import useAssessmentsStore from '../stores/assessmentsStore';
+import useResizablePanel from '../hooks/useResizablePanel';
 
 // Assessment scoping (issue #299, same scheme as Findings/Artifacts got in
 // #297): demo controls are stamped to the demo assessment and drop out of
@@ -97,9 +98,9 @@ const UserControls = () => {
   const [reqPanelWidth, setReqPanelWidth] = useState(380);
   const [isResizingReqPanel, setIsResizingReqPanel] = useState(false);
 
-  // Detail panel resize state
-  const [detailPanelWidth, setDetailPanelWidth] = useState(420);
-  const [isResizingDetailPanel, setIsResizingDetailPanel] = useState(false);
+  // Detail panel: draggable and remembered (see useResizablePanel). The row ends at the window edge.
+  const detailPanel = useResizablePanel({ key: 'controls', unit: 'px', defaultPx: 420, minPx: 320, maxPx: 800 });
+  const detailPanelWidth = detailPanel.width;
 
   // Dropdown states
   const [ownerDropdownOpen, setOwnerDropdownOpen] = useState(false);
@@ -164,22 +165,6 @@ const UserControls = () => {
     setIsResizingReqPanel(false);
   }, []);
 
-  // Detail panel resize handlers
-  const handleDetailPanelMouseDown = useCallback((e) => {
-    e.preventDefault();
-    setIsResizingDetailPanel(true);
-  }, []);
-
-  const handleDetailPanelMouseMove = useCallback((e) => {
-    if (!isResizingDetailPanel) return;
-    const newWidth = window.innerWidth - e.clientX;
-    setDetailPanelWidth(Math.max(320, Math.min(800, newWidth)));
-  }, [isResizingDetailPanel]);
-
-  const handleDetailPanelMouseUp = useCallback(() => {
-    setIsResizingDetailPanel(false);
-  }, []);
-
   // Add/remove event listeners for resize
   useEffect(() => {
     if (isResizingReqPanel) {
@@ -195,22 +180,6 @@ const UserControls = () => {
       document.body.style.userSelect = '';
     };
   }, [isResizingReqPanel, handleReqPanelMouseMove, handleReqPanelMouseUp]);
-
-  // Add/remove event listeners for detail panel resize
-  useEffect(() => {
-    if (isResizingDetailPanel) {
-      document.addEventListener('mousemove', handleDetailPanelMouseMove);
-      document.addEventListener('mouseup', handleDetailPanelMouseUp);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    }
-    return () => {
-      document.removeEventListener('mousemove', handleDetailPanelMouseMove);
-      document.removeEventListener('mouseup', handleDetailPanelMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isResizingDetailPanel, handleDetailPanelMouseMove, handleDetailPanelMouseUp]);
 
   // Get user name helper
   const getUserName = useCallback((userId) => {
@@ -726,7 +695,7 @@ const UserControls = () => {
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-0 relative z-0">
+      <div ref={detailPanel.containerRef} className="flex flex-1 min-h-0 relative z-0">
         {/* Table */}
         <div
           className="overflow-auto transition-all duration-300"
@@ -925,23 +894,13 @@ const UserControls = () => {
         {detailPanelOpen && (
           <div
             className="overflow-auto bg-gray-50 border-l relative flex-shrink-0"
-            style={{ width: `${detailPanelWidth}px` }}
+            style={detailPanel.panelStyle}
           >
             {/* Resize Handle */}
             <div
-              onMouseDown={handleDetailPanelMouseDown}
-              style={{
-                position: 'absolute',
-                left: '-4px',
-                top: 0,
-                bottom: 0,
-                width: '8px',
-                cursor: 'col-resize',
-                zIndex: 10
-              }}
-              className={`transition-colors ${isResizingDetailPanel ? 'bg-blue-500' : 'bg-transparent hover:bg-blue-400'
+              {...detailPanel.separatorProps}
+              className={`transition-colors ${detailPanel.isDragging ? 'bg-blue-500' : 'bg-transparent hover:bg-blue-400'
                 }`}
-              title="Drag to resize"
             />
             <div className="p-4 h-full">
               {currentControl ? (
