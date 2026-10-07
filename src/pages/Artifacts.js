@@ -692,7 +692,13 @@ const Artifacts = () => {
         {/* Right - Detail Panel */}
         {(selectedArtifact || editMode) && (
           <>
-          <div {...splitPanel.separatorProps} />
+          <div
+            {...splitPanel.separatorProps}
+            style={{
+              ...splitPanel.separatorProps.style,
+              background: splitPanel.isDragging ? '#2563eb' : 'transparent'
+            }}
+          />
           <div
             className="overflow-auto bg-white dark:bg-gray-900"
             style={splitPanel.panelStyle}

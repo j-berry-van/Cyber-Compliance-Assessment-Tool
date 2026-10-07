@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { X, Link2, FileText, AlertTriangle, ClipboardCheck, User } from 'lucide-react';
 import FrameworkBadge from './FrameworkBadge';
 import CSFBadge, { SubcategoryBadge } from './CSFBadge';
 import { UserAvatar } from './UserAvatar';
 import { ArtifactBadge, FindingBadge, ControlBadge } from './BadgeSystem';
 import CrossFrameworkPanel from './CrossFrameworkPanel';
+import useResizablePanel from '../hooks/useResizablePanel';
 
 /**
  * RequirementDetailPanel - Side panel for viewing requirement details
@@ -18,8 +19,7 @@ import CrossFrameworkPanel from './CrossFrameworkPanel';
  * should be managed through the Controls page and controlsStore.
  */
 const RequirementDetailPanel = ({ requirement, onClose, onSave, controls = [], artifacts = [], findings = [] }) => {
-  const [panelWidth, setPanelWidth] = useState(420);
-  const [isResizing, setIsResizing] = useState(false);
+  const detailPanel = useResizablePanel({ key: 'requirements', unit: 'px', defaultPx: 420, minPx: 320, maxPx: 1200 });
   const panelRef = useRef(null);
 
   // Handle inScope toggle - the only editable field
@@ -28,39 +28,6 @@ const RequirementDetailPanel = ({ requirement, onClose, onSave, controls = [], a
       onSave({ ...requirement, inScope });
     }
   }, [onSave, requirement]);
-
-  // Handle resize
-  const handleMouseDown = useCallback((e) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, []);
-
-  const handleMouseMove = useCallback((e) => {
-    if (!isResizing) return;
-    const newWidth = window.innerWidth - e.clientX;
-    // Constrain width between 320 and 1200 (allows wider expansion like Confluence)
-    setPanelWidth(Math.max(320, Math.min(1200, newWidth)));
-  }, [isResizing]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsResizing(false);
-  }, []);
-
-  // Add/remove event listeners for resize
-  useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    }
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   if (!requirement) return null;
 
@@ -83,7 +50,7 @@ const RequirementDetailPanel = ({ requirement, onClose, onSave, controls = [], a
     <div
       ref={panelRef}
       style={{
-        width: `${panelWidth}px`,
+        ...detailPanel.panelStyle,
         position: 'fixed',
         top: 0,
         right: 0,
@@ -95,20 +62,10 @@ const RequirementDetailPanel = ({ requirement, onClose, onSave, controls = [], a
     >
       {/* Resize Handle - positioned at left edge, extends slightly outside for easier grabbing */}
       <div
-        onMouseDown={handleMouseDown}
-        style={{
-          position: 'absolute',
-          left: '-4px',
-          top: 0,
-          bottom: 0,
-          width: '8px',
-          cursor: 'col-resize',
-          zIndex: 10
-        }}
+        {...detailPanel.separatorProps}
         className={`transition-colors ${
-          isResizing ? 'bg-blue-500' : 'bg-gray-300 hover:bg-blue-400 dark:bg-gray-500 dark:hover:bg-blue-500'
+          detailPanel.isDragging ? 'bg-blue-500' : 'bg-gray-300 hover:bg-blue-400 dark:bg-gray-500 dark:hover:bg-blue-500'
         }`}
-        title="Drag to resize"
       />
 
       {/* Header - Confluence style */}

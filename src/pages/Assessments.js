@@ -30,6 +30,7 @@ import useRequirementsStore, { isCsfRequirement } from '../stores/requirementsSt
 import useUserStore from '../stores/userStore';
 import useAIStore from '../stores/aiStore';
 import useUIStore from '../stores/uiStore';
+import useResizablePanel from '../hooks/useResizablePanel';
 import { formatInlineMarkdown, stripMarkdown } from '../utils/markdownText';
 import { bankCoverage, getBankProcedure, canResetToCommunity, resetToCommunityUpdate, sourceUrlFor } from '../utils/procedureBank';
 import { expandProcedureText, derivePlatformsFromObservations } from '../utils/platformBank';
@@ -72,6 +73,8 @@ const formatTestProcedures = (text) => {
 // truncated plain-text previews. See src/utils/markdownText.js.
 
 const Assessments = () => {
+  // Draggable divider between the Key details and Details columns of an open item
+  const detailSplit = useResizablePanel({ key: 'assessments', defaultFraction: 0.5, minPx: 320 });
   // Store state
   const assessments = useAssessmentsStore((state) => state.assessments);
   const currentAssessmentId = useAssessmentsStore((state) => state.currentAssessmentId);
@@ -1727,10 +1730,10 @@ Format as a numbered list. Be specific and actionable.`;
             title={`${currentAssessment?.name || 'Assessment'} / ${currentItem.type === 'control' ? currentItem.controlId : currentItem.subcategoryId || currentItem.id}`}
           />
 
-          {/* Two-column layout like Jira - 50/50 split */}
-          <div className="grid grid-cols-2 flex-1 min-h-0 overflow-hidden">
-            {/* Left column - Key details (50%) */}
-            <div className="overflow-auto p-6 border-r dark:border-gray-700">
+          {/* Two-column layout like Jira - 50/50 by default, drag the divider to resize */}
+          <div ref={detailSplit.containerRef} className="flex flex-1 min-h-0 overflow-hidden">
+            {/* Left column - Key details */}
+            <div className="overflow-auto p-6" style={{ flex: '1 1 0', minWidth: '320px' }}>
               <div className="space-y-6">
                 {/* Key details section */}
                 <div>
@@ -1902,8 +1905,14 @@ Format as a numbered list. Be specific and actionable.`;
               </div>
             </div>
 
-            {/* Right column - Details panel (50%) */}
-            <div className="overflow-auto bg-gray-50 dark:bg-gray-800/50">
+            <div
+              {...detailSplit.separatorProps}
+              aria-label="Resize details panel"
+              className={`border-l dark:border-gray-700 hover:bg-blue-400 focus:bg-blue-400 ${detailSplit.isDragging ? 'bg-blue-500' : 'bg-transparent'}`}
+            />
+
+            {/* Right column - Details panel */}
+            <div className="overflow-auto bg-gray-50 dark:bg-gray-800/50" style={detailSplit.panelStyle}>
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
