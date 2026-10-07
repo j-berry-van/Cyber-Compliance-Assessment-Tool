@@ -70,7 +70,7 @@ export const isCisaSourced = (record) =>
  * update here (and regenerate) when these dependencies or their versions change.
  */
 export const SERVER_DEPENDENCIES = [
-  { name: 'better-sqlite3', version: '11.10.0', license: 'MIT', use: 'SQLite driver for the multi-user server (runtime)' },
+  { name: 'better-sqlite3', version: '12.11.1', license: 'MIT', use: 'SQLite driver for the multi-user server (runtime)' },
   { name: 'cookie-parser', version: '1.4.7', license: 'MIT', use: 'session cookie parsing in the multi-user server (runtime)' },
   { name: 'supertest', version: '7.3.1', license: 'MIT', use: 'HTTP assertions in the server tests (development only, not shipped)' }
 ];

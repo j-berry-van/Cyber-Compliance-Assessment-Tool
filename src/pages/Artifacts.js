@@ -3,6 +3,7 @@ import { Edit, Trash2, Save, X, Plus, Link as LinkIcon, ExternalLink, Upload, Do
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import useCSFStore from '../stores/csfStore';
+import useResizablePanel from '../hooks/useResizablePanel';
 import useArtifactStore, { ARTIFACT_HEALTH_VALUES, ARTIFACT_TYPE_VALUES, ARTIFACT_CSV_HEADERS } from '../stores/artifactStore';
 import useUserStore from '../stores/userStore';
 import useControlsStore from '../stores/controlsStore';
@@ -133,6 +134,7 @@ const Artifacts = () => {
 
   // File input ref for CSV import
   const fileInputRef = useRef(null);
+  const splitPanel = useResizablePanel({ key: 'artifacts' });
 
   // Load artifacts from localStorage or profile data on component mount
   useEffect(() => {
@@ -451,14 +453,14 @@ const Artifacts = () => {
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Header - Jira style */}
       <div className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Artifacts</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {scopedArtifacts.length} items{scopeFilter !== SCOPE_ALL ? ` · ${artifacts.length} total` : ''}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Assessment scope (issue #297) */}
             <select
               value={scopeFilter}
@@ -520,9 +522,12 @@ const Artifacts = () => {
       </div>
 
       {/* Main content - Two column layout */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div ref={splitPanel.containerRef} className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left - Table */}
-        <div className={`${selectedArtifact || editMode ? 'w-1/2' : 'w-full'} overflow-auto border-r dark:border-gray-700`}>
+        <div
+          className={`${selectedArtifact || editMode ? '' : 'w-full'} overflow-auto border-r dark:border-gray-700`}
+          style={selectedArtifact || editMode ? { flex: '1 1 0', minWidth: 0 } : undefined}
+        >
           <BulkDeleteBar
             count={selectedCount}
             onDelete={handleBulkDelete}
@@ -686,7 +691,12 @@ const Artifacts = () => {
 
         {/* Right - Detail Panel */}
         {(selectedArtifact || editMode) && (
-          <div className="w-1/2 overflow-auto bg-white dark:bg-gray-900">
+          <>
+          <div {...splitPanel.separatorProps} />
+          <div
+            className="overflow-auto bg-white dark:bg-gray-900"
+            style={splitPanel.panelStyle}
+          >
             <div className="p-6">
               {/* Detail Header */}
               <div className="flex items-center justify-between mb-6">
@@ -1204,6 +1214,7 @@ const Artifacts = () => {
               )}
             </div>
           </div>
+          </>
         )}
       </div>
     </div>

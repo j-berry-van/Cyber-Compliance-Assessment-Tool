@@ -189,7 +189,7 @@ This is an encrypted file format intended for secure backup/storage. It will not
 
 Use the provided Node script to decrypt an encrypted export back into a regular CSV:
 
-**Note:** The script works on modern Node versions (Node 18+ recommended). On Node 22+ `globalThis.crypto` is read-only; the script handles this internally.
+**Note:** The script works on modern Node versions (Node 22 recommended). On Node 22+ `globalThis.crypto` is read-only; the script handles this internally.
 
 ```bash
 node scripts/decrypt-export.mjs --in <input.enc.csv> --out <output.csv>

@@ -15,6 +15,8 @@ const useUIStore = create(
 
       // Panel state
       detailPanelOpen: true,
+      // Saved detail-panel width per page, as a fraction of the row (see hooks/useResizablePanel)
+      panelSplits: {},
 
       // Filters
       searchTerm: '',
@@ -92,6 +94,14 @@ const useUIStore = create(
       setCurrentPage: (page) => set({ currentPage: page }),
       setItemsPerPage: (count) => set({ itemsPerPage: count, currentPage: 1 }),
 
+      // Actions - Panel width (null clears it back to the page default)
+      setPanelSplit: (key, fraction) => set((state) => {
+        const next = { ...(state.panelSplits || {}) };
+        if (fraction === null) delete next[key];
+        else next[key] = fraction;
+        return { panelSplits: next };
+      }),
+
       // Actions - Sorting
       setSort: (key, direction) => set({ sortKey: key, sortDirection: direction }),
 
@@ -116,6 +126,7 @@ const useUIStore = create(
         darkMode: state.darkMode,
         itemsPerPage: state.itemsPerPage,
         detailPanelOpen: state.detailPanelOpen,
+        panelSplits: state.panelSplits,
       }),
     }
   )

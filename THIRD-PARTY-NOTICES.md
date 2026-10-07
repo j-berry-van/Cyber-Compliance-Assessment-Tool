@@ -2414,6 +2414,6 @@ This bank currently contains no third-party licensed content.
 
 The multi-user server (`server/`) depends on these packages in addition to the rest of its `package.json`; each is licensed under its own terms, listed here with the version first used.
 
-- **better-sqlite3** 11.10.0 — MIT — SQLite driver for the multi-user server (runtime)
+- **better-sqlite3** 12.11.1 — MIT — SQLite driver for the multi-user server (runtime)
 - **cookie-parser** 1.4.7 — MIT — session cookie parsing in the multi-user server (runtime)
 - **supertest** 7.3.1 — MIT — HTTP assertions in the server tests (development only, not shipped)

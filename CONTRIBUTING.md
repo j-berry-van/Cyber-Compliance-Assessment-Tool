@@ -153,7 +153,7 @@ npm test -- --watchAll=false
 
 ### Server tests
 
-The server (`server/`) has its own tests, which use Node's built-in test runner (Node 18+):
+The server (`server/`) has its own tests, which use Node's built-in test runner (Node 22):
 
 ```bash
 cd server
@@ -172,8 +172,8 @@ cd server && npm ci && MULTIUSER=true STATIC_DIR=../build DATA_DIR=/tmp/csf-dev 
 
 Use a throwaway `DATA_DIR` while developing. The details, env vars and Docker are in [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 Most client tests run in local mode; tests that cover mode-specific behaviour set `process.env.REACT_APP_SERVER_MODE`
-themselves and restore it afterwards. `better-sqlite3` is pinned to `^11` in `server/package.json` because it must run
-on Node 18 (newer majors drop Node 18 support); do not bump it without also moving the supported Node version.
+themselves and restore it afterwards. `better-sqlite3` is at `^12` in `server/package.json`, which supports Node 20 and later; the project targets Node 22.
+Keep the Node version and that dependency in step when you change either.
 
 ### Test Requirements
 
