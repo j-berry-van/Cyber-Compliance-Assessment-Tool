@@ -126,6 +126,11 @@ docker build -t csf-profile .
 docker run -d --name csf -p 127.0.0.1:4000:4000 -v csf-data:/data -e TRUST_PROXY=true csf-profile
 ```
 
+Or use the `docker-compose.yml` at the repository root (`docker compose up -d --build`). It binds to `127.0.0.1:4000`,
+keeps data in the `csf-data` volume, and reads `TRUST_PROXY`, `COOKIE_SECURE`, `ALLOWED_ORIGINS`, `CLAUDE_API_KEY`,
+`CLAUDE_MODEL` and `CSF_PORT` from your shell or a `.env` file beside it. `docker compose down` keeps the data;
+`docker compose down -v` deletes it.
+
 Data lives in the `/data` volume (`/data/csf.db`). Pass `COOKIE_SECURE=true` or `TRUST_PROXY=true` as above, and any
 `CLAUDE_*` variables you want. The image uses Node 22 with `better-sqlite3` ^12.
 

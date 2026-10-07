@@ -1,0 +1,26 @@
+# Multi-user (server mode) deployment. See docs/SELF_HOSTING.md.
+#   docker compose up -d --build
+# Then open http://localhost:4000 and create the admin account.
+#
+# Behind an HTTPS reverse proxy, set TRUST_PROXY=true (or COOKIE_SECURE=true) in your shell or a
+# .env file next to this one. Leave both unset for a plain-http trial on localhost/LAN.
+services:
+  csf:
+    build: .
+    image: csf-profile
+    container_name: csf
+    restart: unless-stopped
+    # Bound to localhost so people cannot bypass your reverse proxy. Use "4000:4000" for LAN access.
+    ports:
+      - "127.0.0.1:${CSF_PORT:-4000}:4000"
+    environment:
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-}
+    volumes:
+      - csf-data:/data
+
+volumes:
+  csf-data:
