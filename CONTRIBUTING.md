@@ -90,8 +90,10 @@ src/
 └── App.js         # Main application entry
 public/            # Static assets and templates
 server/            # Express server: AI proxy, plus accounts/SQLite in multi-user mode
-docs/              # SELF_HOSTING.md, MULTI_USER.md, design specs
+docs/              # ARCHITECTURE.md, SELF_HOSTING.md, MULTI_USER.md, design specs
 ```
+
+For how the pieces connect (run modes, sync, invariants), read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Pull Request Process
 
