@@ -65,6 +65,17 @@ export const isCisaSourced = (record) =>
   /^cisagov\//i.test(record?.attribution?.upstream?.repo || '');
 
 /**
+ * npm packages the multi-user server added (server/package.json). Their
+ * licenses were read from each package's `license` field in node_modules;
+ * update here (and regenerate) when these dependencies or their versions change.
+ */
+export const SERVER_DEPENDENCIES = [
+  { name: 'better-sqlite3', version: '11.10.0', license: 'MIT', use: 'SQLite driver for the multi-user server (runtime)' },
+  { name: 'cookie-parser', version: '1.4.7', license: 'MIT', use: 'session cookie parsing in the multi-user server (runtime)' },
+  { name: 'supertest', version: '7.3.1', license: 'MIT', use: 'HTTP assertions in the server tests (development only, not shipped)' }
+];
+
+/**
  * Validate every bank record against its license obligations. Returns error
  * strings; any error fails the build (the CI gate). Two rules:
  *  - an attribution-obligated record must carry a COMPLETE attribution block
@@ -175,6 +186,17 @@ export const renderNotices = (banks) => {
       lines.push('');
     }
   }
+
+  lines.push('## Server dependencies', '');
+  lines.push(
+    'The multi-user server (`server/`) depends on these packages in addition to the rest of its ' +
+    '`package.json`; each is licensed under its own terms, listed here with the version first used.',
+    ''
+  );
+  for (const d of SERVER_DEPENDENCIES) {
+    lines.push(`- **${d.name}** ${d.version} — ${d.license} — ${d.use}`);
+  }
+  lines.push('');
 
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
 };

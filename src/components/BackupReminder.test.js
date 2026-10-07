@@ -76,4 +76,21 @@ describe('BackupReminder Component', () => {
     const notification = container.querySelector('[class*="border-orange"]');
     expect(notification).toBeInTheDocument();
   });
+
+  describe('server mode', () => {
+    const prev = process.env.REACT_APP_SERVER_MODE;
+    beforeEach(() => { process.env.REACT_APP_SERVER_MODE = 'true'; });
+    afterEach(() => {
+      if (prev === undefined) delete process.env.REACT_APP_SERVER_MODE; else process.env.REACT_APP_SERVER_MODE = prev;
+    });
+
+    test('explains that data is saved to the server and backups are the administrator\'s job', () => {
+      render(<BackupReminder onClose={mockOnClose} onExport={mockOnExport} />);
+
+      expect(screen.getByText(/your data is saved on the server/i)).toBeInTheDocument();
+      expect(screen.getByText(/administrator.s responsibility/i)).toBeInTheDocument();
+      expect(screen.queryByText(/time to back up your data/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/it's been a while since your last export/i)).not.toBeInTheDocument();
+    });
+  });
 });

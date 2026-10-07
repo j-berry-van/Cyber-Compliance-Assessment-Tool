@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createStorage } from '../storage/createStorage';
 
 // Default frameworks - used for initial state and migrations
 const defaultFrameworks = [
@@ -154,6 +155,7 @@ const useFrameworksStore = create(
     }),
     {
       name: 'csf-frameworks-storage',
+      storage: createStorage('csf-frameworks-storage'),
       version: 6,
       migrate: (persistedState, version) => {
         // Version 2: Reset to new default frameworks (removed SOC2, HIPAA, PCI-DSS; updated names; added source)

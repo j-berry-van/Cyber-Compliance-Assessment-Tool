@@ -9,6 +9,10 @@ import FirstVisitWarning from './components/FirstVisitWarning';
 import BackupReminder from './components/BackupReminder';
 import Toolbar from './components/Toolbar';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';
+import AuthGate from './components/AuthGate';
+import { isServerMode } from './storage/createStorage';
+import { shouldLoadSeed } from './storage/seedGuard';
+import SyncConflictDialog from './components/SyncConflictDialog';
 import { SkeletonTable } from './components/SkeletonLoader';
 
 // Hooks
@@ -37,6 +41,7 @@ const Findings = lazy(() => import('./pages/Findings'));
 const AuditLog = lazy(() => import('./pages/AuditLog'));
 const Metrics = lazy(() => import('./pages/Metrics'));
 const Inventory = lazy(() => import('./pages/Inventory'));
+const Accounts = lazy(() => import('./pages/Accounts'));
 
 // Lightweight fallback shown while a route chunk loads or its store hydrates.
 const RouteFallback = () => (
@@ -56,8 +61,8 @@ const AppContent = () => {
 
   useEffect(() => {
     // Ask the browser to protect this origin's storage from eviction under
-    // disk pressure — all assessment data lives in localStorage, so eviction
-    // is data loss. Best-effort: browsers may ignore it; regular exports
+    // disk pressure — in local mode all assessment data lives in localStorage,
+    // so eviction is data loss (in server mode it protects the unsent outbox). Best-effort: browsers may ignore it; regular exports
     // (BackupReminder) remain the real durability story.
     navigator.storage?.persist?.().catch(() => {});
   }, []);
@@ -70,9 +75,14 @@ const AppContent = () => {
     // Fix email addresses using store directly
     useUserStore.getState().fixEmailAddresses();
     // Load requirements data from the seed CSV
-    loadRequirements();
+    // Server mode: the stores are shared, so only seed an empty workspace.
+    if (shouldLoadSeed({ serverMode: isServerMode(), existingCount: useRequirementsStore.getState().requirements?.length })) {
+      loadRequirements();
+    }
     // Load assessments data from the seed CSV
-    loadAssessments();
+    if (shouldLoadSeed({ serverMode: isServerMode(), existingCount: useAssessmentsStore.getState().assessments?.length })) {
+      loadAssessments();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
   
@@ -143,6 +153,7 @@ const AppContent = () => {
               <Route path="/history" element={<AuditLog />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/ai-assistant" element={<AIAssistant />} />
+              <Route path="/accounts" element={<Accounts />} />
             </Routes>
           </Suspense>
         </main>
@@ -169,37 +180,41 @@ const AppContent = () => {
 const App = () => {
   return (
     <ErrorBoundary>
-      <Router>
-        <AppContent />
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            duration: 3000,
-            className: 'app-toast',
-            style: {
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: 'var(--radius-lg)',
-              fontSize: '13px',
-              padding: '10px 14px',
-              boxShadow: 'var(--shadow-lg)',
+      <AuthGate>
+        <Router>
+          <AppContent />
+          <SyncConflictDialog />
+        </Router>
+      </AuthGate>
+      {/* Outside the gate so toasts work on the login screen */}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          duration: 3000,
+          className: 'app-toast',
+          style: {
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            fontSize: '13px',
+            padding: '10px 14px',
+            boxShadow: 'var(--shadow-lg)',
+          },
+          success: {
+            iconTheme: {
+              primary: 'var(--terminal-green)',
+              secondary: 'var(--bg-secondary)',
             },
-            success: {
-              iconTheme: {
-                primary: 'var(--terminal-green)',
-                secondary: 'var(--bg-secondary)',
-              },
+          },
+          error: {
+            iconTheme: {
+              primary: 'var(--terminal-red)',
+              secondary: 'var(--bg-secondary)',
             },
-            error: {
-              iconTheme: {
-                primary: 'var(--terminal-red)',
-                secondary: 'var(--bg-secondary)',
-              },
-            },
-          }}
-        />
-      </Router>
+          },
+        }}
+      />
     </ErrorBoundary>
   );
 };

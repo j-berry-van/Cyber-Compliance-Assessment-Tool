@@ -1,6 +1,6 @@
 # CSF Profile — Free, Open-Source NIST CSF 2.0 Assessment Tool
 
-A free, open-source, self-hosted toolkit for running NIST Cybersecurity Framework (CSF) 2.0 profile assessments — a lightweight alternative to commercial GRC platforms. Track outcomes, assign ownership, document observations and findings, score current and target states, and export for visualization. All locally, with your data staying on your machine.
+A free, open-source, self-hosted toolkit for running NIST Cybersecurity Framework (CSF) 2.0 profile assessments — a lightweight alternative to commercial GRC platforms. Track outcomes, assign ownership, document observations and findings, score current and target states, and export for visualization. Run it locally with your data staying in your browser, or self-host it for a team on your own server (see [Two ways to run it](#two-ways-to-run-it)).
 
 **[🚀 Try the Live Demo](https://csf-profile-app.pages.dev)** — no install required. Explore a populated assessment of the fictional company "Alma Security" in seconds.
 
@@ -56,6 +56,36 @@ Building your GRC portfolio artifact for a Simply Cyber Academy course? Here's t
 
 **[More Screenshots](SCREENSHOTS.md)** - See the application in action
 
+## Two ways to run it
+
+The same app runs in two modes. The mode is fixed when the app is built.
+
+| | **Local / desktop** (default) | **Self-hosted multi-user** |
+|---|---|---|
+| Who it is for | One person, one machine; the hosted demo; the Tauri desktop app | A team assessing together |
+| Where data lives | In your browser's localStorage. Nothing is uploaded. | In a SQLite file on **your own server**, shared by every account |
+| Accounts | None | Sign-in with admin-created accounts (no self-signup) |
+| Collaboration | Export / import files | Shared workspace, automatic saving, conflict prompts when two people edit the same record, a "last edited by" line on each assessment |
+| Setup | `npm start` (below) | Build with `REACT_APP_SERVER_MODE=true`, run `server/` with `MULTIUSER=true`, or use the Dockerfile |
+
+In multi-user mode the organization profile (crown jewels, security tooling) is saved to your server too, and every
+account on it can see it. Treat your server as the new place that data lives and back it up. Local mode behaves exactly
+as before.
+
+- Self-hosting guide (build, run, HTTPS, Docker, backups, password recovery): [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)
+- Using it as a team (accounts, linking participants, conflicts, importing a browser's data): [docs/MULTI_USER.md](docs/MULTI_USER.md)
+- Design and the decisions behind it: [multi-user design spec](docs/superpowers/specs/2026-10-06-multi-user-server-storage-design.md)
+
+### Architecture at a glance
+
+- **Client**: a React app. Each data store is persisted with zustand. In local mode it writes to localStorage; in
+  server mode a sync engine writes per-record changes to the server (with an outbox so edits survive being offline),
+  polls for other people's changes about every 20 seconds, and shows a Saving / Unsaved indicator. A few per-browser
+  settings (theme, AI settings, current assessment, acting user, cloud-AI consent) stay in localStorage.
+- **Server** (`server/`, optional in local mode): Express 5. In multi-user mode it adds accounts and sessions, a
+  records API with optimistic versioning, and a one-time import of a browser's existing data, all backed by SQLite.
+  In every mode it hosts the AI proxy, which keeps the Claude API key off the browser.
+
 ## 🚪 Choose Your Door
 
 The same NIST CSF 2.0 guidance, flattened into proper tables, ships in four formats. Pick the one that fits how you work — you don't need to install the app to get value from this repo:
@@ -65,6 +95,7 @@ The same NIST CSF 2.0 guidance, flattened into proper tables, ships in four form
 | 📊 **Spreadsheets** | Excel / Power Query users; feeding your AI assistant; zero-tooling quick start | [GET_THE_SPREADSHEETS/](GET_THE_SPREADSHEETS/) |
 | 📝 **Notion template** | Individuals and small teams who want a free, dynamic CSF database — no GRC tool budget needed | [GET_THE_NOTION_TEMPLATE/](GET_THE_NOTION_TEMPLATE/) |
 | 💻 **React app** | Consultants and analysts who want a guided assessment workflow ([or just try the demo](https://csf-profile-app.pages.dev)) | [INSTALL_THE_APP/](INSTALL_THE_APP/) or [Installation](#installation-and-setup) below |
+| 👥 **Team server** | A team that wants one shared workspace with accounts, on its own server | [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) |
 | 🎓 **Practice case study** | Career-changers building a GRC portfolio — run a full assessment of fictional "Alma Security" | [ASSESSMENT_CATALOG/](ASSESSMENT_CATALOG/) |
 
 ## 🤝 Contributing
@@ -76,6 +107,8 @@ This project is intentionally a first-contribution-friendly repo for GRC practit
 Find in depth videos for CSF profile assessments and this tool in Simply Cyber Academy here: [https://academy.simplycyber.io/p/accrp](https://academy.simplycyber.io/p/accrp)
 
 ## Installation and Setup
+
+These steps run **local mode** (your data stays in your browser). For a shared team server, see [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 
 ### Walkthrough:
 
@@ -174,7 +207,7 @@ Security note: Passing `--password` on the command line may save it in your shel
 
 ### Environment Variables Configuration (Optional)
 
-The application uses an optional `.env` file for backend configuration. The only credential the app uses is the Claude AI Assistant key (server-side). Copy `.env.example` to `.env` to get started:
+The application uses an optional `.env` file for backend configuration. The only credential the app uses is the Claude AI Assistant key (server-side). Copy `.env.example` to `.env` to get started. (Multi-user server settings such as `MULTIUSER`, `DATA_DIR` and `COOKIE_SECURE` are listed in `server/env.example` and [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).)
 
 ```bash
 cp .env.example .env
@@ -229,19 +262,37 @@ If you encounter issues with `react-scripts` not installing correctly on Kali Li
    ls node_modules/.bin/ | grep react-scripts
    ```
 
-#### Docker Support (Coming Soon)
+#### Docker
 
-Docker support is planned for a future release. Draft Docker files are available in `_future/docker/` for reference. These require updates for production use with the new backend integration.
+A `Dockerfile` at the repository root builds the multi-user (server mode) image: it builds the client with
+`REACT_APP_SERVER_MODE=true` and runs the server with accounts and a SQLite volume. See
+[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md#4-docker). The older draft files in `_future/docker/` are for reference
+only and are not used.
 
 *Contributed by [@SecBurg](https://github.com/SecBurg)*
 
 ## Export Options
 
-File-based exports run entirely in the browser — no backend required:
+File-based exports are generated in the browser and downloaded by it — no backend required in local mode:
 - **CSV Export**: Import into Excel, Google Sheets, or any spreadsheet tool
 - **JSON Export**: Import into Jira via the Jira Importers plugin, or use with other tools
 
 ## Features
+
+### Multi-user mode (self-hosted)
+
+* Sign-in accounts created by an administrator; passwords hashed with scrypt, sessions in HttpOnly cookies
+* One shared workspace saved automatically to a SQLite database on your server
+* A header indicator that shows Saved / Saving / Unsaved changes, with edits kept and resent when the server is unreachable
+* A "Someone else changed this record" prompt (take theirs / keep mine) when two people edit the same record
+* A "last edited by" line and recent-editor list on each assessment
+* Link an account to an assessment participant; change your own password; sign out
+* A one-time, optional import of an existing browser's data into an empty workspace
+
+### Tech stack
+
+React 19 with zustand stores in the client (built with Create React App), plus an optional Tauri desktop shell; a small Express 5
+server for the AI proxy and, in multi-user mode, accounts and storage on SQLite (`better-sqlite3`).
 
 ### CSV Import and Export
 
@@ -275,7 +326,8 @@ The application includes several key sections:
 * **Dashboard**: Visualize assessment data and progress
 * **Scoring**: Reference the scoring legend and methodology
 * **Artifacts**: Audit artifacts with links, to map to CSF subcategories for "test once - assure many" efficiencies
-* **User Management**: Manage users involved in the assessment
+* **User Management**: Manage the participants (people named in assessments)
+* **Accounts** *(multi-user mode only)*: Administrators add and disable sign-in accounts and link them to participants; everyone can change their own password
 
 ## Scoring System
 

@@ -19,6 +19,7 @@ import SortableHeader from '../components/SortableHeader';
 import ExportPasswordDialog from '../components/ExportPasswordDialog';
 import AssessmentPicker from '../components/AssessmentPicker';
 import EmptyState from '../components/EmptyState';
+import AssessmentActivity from '../components/AssessmentActivity';
 import ScoreSelect from '../components/ScoreSelect';
 import RecordPanel, { CommentsButton } from '../components/RecordPanel';
 
@@ -1253,6 +1254,7 @@ Format as a numbered list. Be specific and actionable.`;
                       {assessment.description && (
                         <p className="text-gray-600 text-sm mt-1">{assessment.description}</p>
                       )}
+                      <AssessmentActivity assessmentId={assessment.id} />
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                         <span>Scope: {assessment.scopeType === 'controls' ? 'Controls' : 'Requirements'}</span>
                         <span>{prog.total} items</span>

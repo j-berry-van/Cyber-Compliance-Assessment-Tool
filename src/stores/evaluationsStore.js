@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { sanitizeInput } from '../utils/sanitize';
+import { createStorage } from '../storage/createStorage';
 
 /**
  * Evaluations Store
@@ -454,6 +455,7 @@ const useEvaluationsStore = create(
     }),
     {
       name: 'csf-evaluations-storage',
+      storage: createStorage('csf-evaluations-storage'),
       version: 1,
       partialize: (state) => ({
         evaluations: state.evaluations,

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { isFirstVisit, acknowledgeFirstVisit } from '../utils/backupTracking';
+import { firstVisitStorageNote } from '../utils/modeCopy';
 
 const MONO_STACK = "'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace";
 
 /**
  * First Visit Welcome Modal
  * Greets new users, introduces the pre-loaded Alma Security sample assessment,
- * and notes local-storage persistence. Terminal design system.
+ * and says where data is kept (browser storage locally, the server in server mode). Terminal design system.
  */
 const FirstVisitWarning = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -89,8 +90,7 @@ const FirstVisitWarning = () => {
             <li>Export audit-ready CSV workpapers</li>
           </ul>
           <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af', letterSpacing: '0.02em' }}>
-            Data lives in your browser's local storage — export CSV backups as you work
-            (Settings has reminders).
+            {firstVisitStorageNote()}
           </p>
         </div>
 

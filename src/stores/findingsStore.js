@@ -8,6 +8,7 @@ import useCommentsStore from './commentsStore';
 import { COMPREHENSIVE_FINDINGS, COMPREHENSIVE_ASSESSMENT_ID } from './comprehensiveAssessmentData';
 import { LEGACY_EXAMPLE_ASSESSMENT_IDS } from './assessmentsStore';
 import { DEMO_SEED_SOURCE } from '../utils/assessmentScope';
+import { createStorage } from '../storage/createStorage';
 
 // Only the comprehensive example's findings ship with the software (issue
 // #294). The four FND-1..FND-4 demo findings belonged to the removed legacy
@@ -505,6 +506,7 @@ const useFindingsStore = create(
     }),
     {
       name: 'csf-findings-storage',
+      storage: createStorage('csf-findings-storage'),
       version: 6,
       migrate: (persistedState, version) => migrateFindingsState(persistedState, version),
       partialize: (state) => ({

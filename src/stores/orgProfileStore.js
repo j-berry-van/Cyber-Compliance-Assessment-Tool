@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createStorage } from '../storage/createStorage';
 
 /**
  * Organization profile — powers optional tailoring of community test
@@ -7,12 +8,16 @@ import { persist } from 'zustand/middleware';
  *
  * PRIVACY MODEL (see PRIVATE_DATA.md): this is the most sensitive record in
  * the app — crown jewels plus the security tooling list read like an
- * attacker's shopping list. It lives only in this browser's localStorage,
- * is UNCONDITIONALLY excluded from share exports (including derived text:
- * tailored procedures are swapped back to the pristine community version),
- * and rides complete backups only. Sending profile text to a CLOUD AI
- * provider requires the explicit cloudConsent opt-in; local Ollama needs
- * none.
+ * attacker's shopping list. Where it lives depends on the mode:
+ *  - local/desktop mode: only this browser's localStorage, nothing is uploaded;
+ *  - multi-user server mode (REACT_APP_SERVER_MODE=true): it syncs to the
+ *    organization's OWN server (SQLite) and is visible to every account there.
+ *    That is an accepted, documented consequence of a shared workspace.
+ * In both modes it is UNCONDITIONALLY excluded from share exports (including
+ * derived text: tailored procedures are swapped back to the pristine community
+ * version), and rides complete backups only. Sending profile text to a CLOUD AI
+ * provider requires the explicit cloudConsent opt-in, which stays per-browser
+ * in both modes (a localField, never synced); local Ollama needs none.
  */
 
 export const ORG_PROFILE_SCHEMA_VERSION = 1;
@@ -58,6 +63,7 @@ const useOrgProfileStore = create(
     }),
     {
       name: 'csf-org-profile-storage',
+      storage: createStorage('csf-org-profile-storage'),
       version: ORG_PROFILE_SCHEMA_VERSION
     }
   )

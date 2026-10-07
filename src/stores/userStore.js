@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { DEMO_SEED_SOURCE } from '../utils/assessmentScope';
+import { createStorage } from '../storage/createStorage';
+import useAccountStore from './accountStore';
 
 // Default users for new installations — the demo (Alma Security) staff.
 // seedSource marks them as shipped example data (issue #297) so the directory
@@ -95,6 +97,8 @@ const useUserStore = create(
         // Positive resolution: only a truthy directory lookup may be stored,
         // so a stale/garbage id can never brand writes (null clears).
         if (id !== null && !get().getUserById(id)) return;
+        // No-op when unchanged: every set() reaches persist, and in server mode that can queue writes.
+        if (get().currentUserId === id) return;
         set({ currentUserId: id });
       },
 
@@ -108,7 +112,7 @@ const useUserStore = create(
 
       getCurrentUserName: () => {
         const user = get().getCurrentUser();
-        return user?.name || 'System';
+        return user?.name || useAccountStore.getState().accountDisplayName || 'System';
       },
 
       // Add a single user
@@ -245,7 +249,9 @@ const useUserStore = create(
     }),
     {
       name: 'csf-users-storage',
+      storage: createStorage('csf-users-storage'),
       version: 3,
+      partialize: (s) => ({ users: s.users, currentUserId: s.currentUserId }),
       migrate: (persistedState, version) => migrateUsersState(persistedState, version),
     }
   )

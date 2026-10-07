@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { quotaSafeLocalStorage } from '../utils/safeStorage';
+import { persist } from 'zustand/middleware';
+import { createStorage } from '../storage/createStorage';
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeInput, escapeCSVValue, csvFormulaGuard } from '../utils/sanitize';
@@ -2137,7 +2137,7 @@ const useAssessmentsStore = create(
       name: 'csf-assessments-storage',
       version: ASSESSMENTS_SCHEMA_VERSION,
       // Quota failures must be loud: attached procedures add real text volume.
-      storage: createJSONStorage(() => quotaSafeLocalStorage),
+      storage: createStorage('csf-assessments-storage'),
       migrate: (persistedState, version) => migrateAssessmentsState(persistedState, version),
       partialize: (state) => ({
         assessments: state.assessments,

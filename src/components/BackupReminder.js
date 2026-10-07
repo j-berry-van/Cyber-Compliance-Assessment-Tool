@@ -1,12 +1,14 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, X, Download } from 'lucide-react';
+import { backupReminderCopy } from '../utils/modeCopy';
 
 /**
  * Backup Reminder Notification
  * Shows periodic reminders to export/backup data
  */
 const BackupReminder = ({ onClose, onExport }) => {
+  const copy = backupReminderCopy();
   const reminderContent = (
     <div 
       className="fixed bottom-4 right-4 max-w-md" 
@@ -23,11 +25,10 @@ const BackupReminder = ({ onClose, onExport }) => {
             <AlertCircle className="text-orange-500 dark:text-orange-400 flex-shrink-0 mt-0.5" size={24} />
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                Time to Back Up Your Data
+                {copy.title}
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                It's been a while since your last export. Protect your assessment work by
-                creating a backup now.
+                {copy.body}
               </p>
               <div className="flex gap-2">
                 <button

@@ -83,3 +83,9 @@ Manage users involved in the assessment process:
 - Users can be assigned as Owners, Stakeholders, Auditors, or Remediation Owners
 
 ![User Management](public/screenshots/User_Management.png)
+
+---
+
+## Multi-user mode screens
+
+The screenshots above show local mode. A self-hosted multi-user build ([docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)) adds a few screens that are not captured here: **Create the admin account** (first run) and **Sign in**, the **Accounts** page (administrators add and disable accounts and link them to participants; everyone can change their own password), the **Saved / Saving / Unsaved changes** indicator in the header, the **Someone else changed this record** conflict dialog, and an **Import this browser's data into the server?** step on a first sign-in. They are described in [docs/MULTI_USER.md](docs/MULTI_USER.md).

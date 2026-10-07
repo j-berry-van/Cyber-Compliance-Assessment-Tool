@@ -2409,3 +2409,11 @@ This bank currently contains no third-party licensed content.
 - License text: https://creativecommons.org/licenses/by/4.0/
 - Upstream: cisagov/ScubaGear@d7cf55f53fcc7faddde61086581b06da86a8da1d (PowerShell/ScubaGear/baselines/teams.md)
 - Retrieved: 2026-07-20
+
+## Server dependencies
+
+The multi-user server (`server/`) depends on these packages in addition to the rest of its `package.json`; each is licensed under its own terms, listed here with the version first used.
+
+- **better-sqlite3** 11.10.0 — MIT — SQLite driver for the multi-user server (runtime)
+- **cookie-parser** 1.4.7 — MIT — session cookie parsing in the multi-user server (runtime)
+- **supertest** 7.3.1 — MIT — HTTP assertions in the server tests (development only, not shipped)

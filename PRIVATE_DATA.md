@@ -1,8 +1,13 @@
 # Private data packs — bring your own data, keep it private
 
-The CSF Profile engine is public. Your assessment data is not. A **private data pack** is a single JSON file, kept outside any git repository, that loads your organization's real scores, observations, and risk entries into the app on your machine. The repo ships the engine; you bring the payload.
+The CSF Profile engine is public. Your assessment data is not. A **private data pack** is a single JSON file, kept outside any git repository, that loads your organization's real scores, observations, and risk entries into the app (on your machine, or on your own server in multi-user mode). The repo ships the engine; you bring the payload.
 
-Your pack never touches this repository, any fork, or any server. The app reads it through the import dialog and stores the merged result in your browser's localStorage. Nothing is uploaded.
+Your pack never touches this repository or any fork. The app reads it through the import dialog, and where the merged result is stored depends on how you run the app:
+
+- **Local / desktop mode:** it is stored in your browser's localStorage. Nothing is uploaded.
+- **Self-hosted multi-user mode** ([docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)): importing a pack writes its data to **your own server's database**, where every account on that server can see it. It still goes nowhere else, but it is no longer only on your machine.
+
+In both modes, keep the pack file itself outside every git clone.
 
 ## Quick start
 
@@ -102,8 +107,10 @@ The optional organization profile (Settings → Organization Profile: business t
 key systems, security tools, **crown jewels**) is the most sensitive record the app holds —
 the crown-jewel list plus your tooling reads like an attacker's shopping list. Its handling:
 
-- **Lives only in this browser's localStorage** (`csf-org-profile-storage`). Never in the repo,
-  never uploaded anywhere by the app.
+- **Where it lives depends on the mode.** In local mode it lives only in this browser's localStorage
+  (`csf-org-profile-storage`), never in the repo and never uploaded. In multi-user server mode it is saved to
+  your organization's own server and **every account on that server can read it**; that is the cost of a shared
+  workspace. Either way it is never in the repo and never sent anywhere else by the app.
 - **Never in shareable exports — unconditionally.** The include-private opt-in restores pack
   data, but NOT the profile.
 - **The derived-text leak path is closed too.** Tailoring bakes profile facts (org name,
@@ -116,6 +123,8 @@ the crown-jewel list plus your tooling reads like an attacker's shopping list. I
 - **Cloud AI consent gate.** Profile text goes to the local Ollama provider freely (nothing
   leaves your machine). Sending it to a cloud provider (Claude API) requires the explicit
   consent checkbox in Settings — off by default, and stored consent can be revoked any time.
+  The consent setting is per-browser even in server mode: it is not synced, so each person decides for
+  their own browser.
 - **Own-data exports are NOT scrubbed.** The assessment CSV exports, Jira CSVs, and
   "Export Assessments Only" JSON are your-own-data files: they keep tailored procedure text
   as-is (that is what makes them useful to you). The scrubbed artifact is the **Share

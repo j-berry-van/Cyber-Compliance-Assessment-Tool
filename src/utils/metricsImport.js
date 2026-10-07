@@ -3,7 +3,7 @@
  *
  * The repository ships this import surface and a fictional sample, never
  * metric content: users load their own catalogue as a separate local CSV
- * file that stays on their machine (localStorage), exactly like private
+ * file that stays on their machine (localStorage; in server mode it is saved to their own server), exactly like private
  * data packs. That keeps licensed material (e.g. CIS-derived metrics an
  * organization is entitled to use internally) out of the MIT tree while the
  * app still gives it a first-class drill-down.
