@@ -31,7 +31,7 @@ server mode **and** the store is listed in `STORE_CONFIGS` (`storeConfigs.js`) w
 `local` (UI, AI, data prefs) and fields in `localFields` (for example `currentAssessmentId`) stay per-browser.
 
 In server mode a store write goes: store, `serverStorage.js` (diffs the store into per-record changes),
-`syncEngine.js` (debounced outbox), `POST /api/records`, SQLite `records` table. The engine also polls for other
+`syncEngine.js` (debounced outbox), `PUT /api/records/...`, SQLite `records` table. The engine also polls for other
 people's changes and rehydrates stores through `rehydrateOnRemote.js`.
 
 Each record has a `version`. A save carries the `baseVersion` it was edited from and the server refuses a stale one.
