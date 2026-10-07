@@ -167,8 +167,17 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      # The two-client integration test spawns server/index.js, so the server needs its own dependencies.
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
       - name: Run tests
         run: npm test -- --watchAll=false
+
+      - name: Run server tests
+        run: npm test
+        working-directory: server
 
       # Compile check only for now: 22 pre-existing eslint warnings (10 files) would fail
       # the build under CI=true. They are tracked as good-first-issues; when the count
