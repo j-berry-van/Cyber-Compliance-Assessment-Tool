@@ -1,9 +1,9 @@
 # Multi-user (server mode) image: builds the React app with REACT_APP_SERVER_MODE=true and serves it
 # plus the API from one Node process. See docs/SELF_HOSTING.md.
 #
-# Node 18 is kept on purpose: server/package.json pins better-sqlite3 ^11, the last major that supports Node 18
-# (newer majors drop Node 18 support). If you move to a newer Node, move better-sqlite3 with it and re-test.
-FROM node:18-bookworm AS build
+# Node 22 pairs with better-sqlite3 ^12 (server/package.json). If you change the Node major, check that
+# better-sqlite3 supports it and re-run the server tests.
+FROM node:22-bookworm AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -12,7 +12,7 @@ COPY . .
 ENV REACT_APP_SERVER_MODE=true INLINE_RUNTIME_CHUNK=false
 RUN npm run build
 
-FROM node:18-bookworm-slim
+FROM node:22-bookworm-slim
 WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm ci --omit=dev

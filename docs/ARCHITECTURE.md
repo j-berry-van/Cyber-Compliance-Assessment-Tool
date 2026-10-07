@@ -64,7 +64,7 @@ Each has a test next to the code that enforces it.
 
 ## Decisions
 
-- `better-sqlite3` is pinned to `^11` in `server/package.json` because it is the last major that runs on Node 18.
+- The project targets Node 22, with `better-sqlite3` at `^12` in `server/package.json` (a native module, so keep the two in step).
 - The mode is a build-time choice so a local-only build can never upload data by accident.
 
 ## Where to look

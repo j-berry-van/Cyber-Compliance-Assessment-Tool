@@ -19,13 +19,12 @@ makes on its own is the optional AI proxy, if you configure a Claude API key.
 
 ## Requirements
 
-- Node.js 18 or newer on the machine that builds and runs it (the Docker image uses Node 18).
+- Node.js 22 on the machine that builds and runs it (the Docker image uses Node 22).
 - A place to keep the data directory and back it up.
 - A way to serve HTTPS (reverse proxy such as Caddy or nginx) if anyone reaches it over a network.
 
-`better-sqlite3` is pinned to `^11` in `server/package.json` because it is the last major version that runs on
-Node 18; newer majors drop Node 18 support (the latest requires Node 22 or later). If you move to a newer Node, update that dependency in the same change
-and re-run the server tests.
+`better-sqlite3` is at `^12` in `server/package.json`, which supports Node 20 and later. If you change the Node
+version, check that the dependency supports it and re-run the server tests.
 
 ## 1. Build the client
 
@@ -128,7 +127,7 @@ docker run -d --name csf -p 127.0.0.1:4000:4000 -v csf-data:/data -e TRUST_PROXY
 ```
 
 Data lives in the `/data` volume (`/data/csf.db`). Pass `COOKIE_SECURE=true` or `TRUST_PROXY=true` as above, and any
-`CLAUDE_*` variables you want. The image uses Node 18 with `better-sqlite3` ^11.
+`CLAUDE_*` variables you want. The image uses Node 22 with `better-sqlite3` ^12.
 
 ## Backups and restore
 

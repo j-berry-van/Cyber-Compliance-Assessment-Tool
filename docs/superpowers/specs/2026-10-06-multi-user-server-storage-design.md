@@ -142,4 +142,4 @@ What was built differs from the draft above in these ways; the sections above ha
 - The "acting user" selector remains an honor system; the server-side `updated_by` account is the attribution that cannot be forged. `csf-last-account` clears the acting user when a different account signs in on the same browser unless that account is linked.
 - Account management is an Accounts page (not Settings → Users). There is no session secret (tokens are random and stored hashed), no `meta.schema_version` (SQLite `user_version` is used), and no client-version handshake.
 - Backup and quota wording is gated on `isServerMode()`: in server mode the app says data is saved to the server and backups are the administrator's responsibility.
-- `better-sqlite3` is pinned to `^11` because it must run on Node 18 (newer majors drop Node 18 support). The server tests use `node --test`, not Jest.
+- `better-sqlite3` was pinned to `^11` for Node 18; the project has since moved to Node 22 and `^12`. The server tests use `node --test`, not Jest.
