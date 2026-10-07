@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import useResizablePanel, { clampFraction } from './useResizablePanel';
+import useResizablePanel, { clampFraction, clampPx } from './useResizablePanel';
 import useUIStore from '../stores/uiStore';
 
 // jsdom (Jest 27) has no PointerEvent, so fireEvent.pointer* would drop clientX/button.
@@ -85,5 +85,90 @@ describe('useResizablePanel', () => {
     act(() => useUIStore.setState({ panelSplits: { test: 0.6 } }));
     render(<Harness />);
     expect(screen.getByTestId('panel').style.flex).toBe('0 0 60%');
+  });
+
+  describe("unit: 'px' (panel pinned to the right edge)", () => {
+    const PxHarness = () => {
+      const { containerRef, panelStyle, separatorProps, isDragging } = useResizablePanel({
+        key: 'px-test', unit: 'px', defaultPx: 480, minPx: 380, maxPx: 900
+      });
+      return (
+        <div ref={containerRef}>
+          <div data-testid="panel" style={panelStyle}>
+            <div {...separatorProps} data-dragging={String(isDragging)} />
+          </div>
+        </div>
+      );
+    };
+
+    test('the panel never covers the whole window, whatever width was saved', () => {
+      render(<PxHarness />);
+      expect(screen.getByTestId('panel').style.maxWidth).toBe('calc(100vw - 48px)');
+    });
+
+    test('clampPx keeps the width within the limits', () => {
+      expect(clampPx(100, 380, 900)).toBe(380);
+      expect(clampPx(2000, 380, 900)).toBe(900);
+      expect(clampPx(512.4, 380, 900)).toBe(512);
+    });
+
+    test('starts at the default width and exposes it on the separator', () => {
+      render(<PxHarness />);
+      expect(screen.getByTestId('panel').style.width).toBe('480px');
+      const sep = screen.getByRole('separator');
+      expect(sep.getAttribute('aria-valuenow')).toBe('480');
+      expect(sep.getAttribute('aria-valuemin')).toBe('380');
+      expect(sep.getAttribute('aria-valuemax')).toBe('900');
+    });
+
+    test('dragging measures from the right edge of the container, clamps, and saves on release', () => {
+      render(<PxHarness />); // mocked row: right edge at 1000
+      const sep = screen.getByRole('separator');
+      fireEvent.pointerDown(sep, { clientX: 520, button: 0 });
+      expect(sep.getAttribute('data-dragging')).toBe('true');
+      fireEvent.pointerMove(sep, { clientX: 400 });
+      expect(screen.getByTestId('panel').style.width).toBe('600px');
+      fireEvent.pointerMove(sep, { clientX: 10 });
+      expect(screen.getByTestId('panel').style.width).toBe('900px');
+      fireEvent.pointerMove(sep, { clientX: 990 });
+      expect(screen.getByTestId('panel').style.width).toBe('380px');
+      fireEvent.pointerMove(sep, { clientX: 300 });
+      expect(useUIStore.getState().panelSplits['px-test']).toBeUndefined();
+      fireEvent.pointerUp(sep);
+      expect(useUIStore.getState().panelSplits['px-test']).toBe(700);
+      expect(sep.getAttribute('data-dragging')).toBe('false');
+    });
+
+    test('arrow keys move in 20px steps, double-click resets', () => {
+      render(<PxHarness />);
+      const sep = screen.getByRole('separator');
+      fireEvent.keyDown(sep, { key: 'ArrowLeft' });
+      expect(screen.getByTestId('panel').style.width).toBe('500px');
+      fireEvent.keyDown(sep, { key: 'ArrowRight' });
+      fireEvent.keyDown(sep, { key: 'ArrowRight' });
+      expect(screen.getByTestId('panel').style.width).toBe('460px');
+      fireEvent.doubleClick(sep);
+      expect(screen.getByTestId('panel').style.width).toBe('480px');
+    });
+
+    test('a saved width is used, and an out-of-range one is clamped', () => {
+      act(() => useUIStore.setState({ panelSplits: { 'px-test': 650 } }));
+      const { unmount } = render(<PxHarness />);
+      expect(screen.getByTestId('panel').style.width).toBe('650px');
+      unmount();
+      act(() => useUIStore.setState({ panelSplits: { 'px-test': 5000 } }));
+      render(<PxHarness />);
+      expect(screen.getByTestId('panel').style.width).toBe('900px');
+    });
+
+    test('dragging restores the page cursor and text selection afterwards', () => {
+      render(<PxHarness />);
+      const sep = screen.getByRole('separator');
+      fireEvent.pointerDown(sep, { clientX: 520, button: 0 });
+      expect(document.body.style.cursor).toBe('col-resize');
+      fireEvent.pointerUp(sep);
+      expect(document.body.style.cursor).toBe('');
+      expect(document.body.style.userSelect).toBe('');
+    });
   });
 });
