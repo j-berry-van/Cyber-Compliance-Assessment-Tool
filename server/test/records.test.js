@@ -179,3 +179,31 @@ test('id length limits and re-creating a deleted record', async () => {
   const all = await a.get('/api/records?since=0').expect(200);
   assert.ok(all.body.records.some((r) => r.id === 'r' && r.deleted === false));
 });
+
+test('re-creating over a tombstone with baseVersion 0 succeeds and continues the version sequence', async () => {
+  const { app } = makeApp();
+  const a = await setupAdmin(app);
+  await put(a, 'c', 'r', { data: 1, baseVersion: 0 }).expect(200);
+  await del(a, 'c', 'r', { baseVersion: 1 }).expect(200);
+  const re = await put(a, 'c', 'r', { data: 2, baseVersion: 0 }).expect(200);
+  assert.equal(re.body.version, 3);
+  const all = await a.get('/api/records?since=0').expect(200);
+  const row = all.body.records.find((r) => r.id === 'r');
+  assert.deepEqual([row.deleted, row.data], [false, 2]);
+});
+
+test('an edit made against an older live version over a tombstone is still a conflict', async () => {
+  const { app } = makeApp();
+  const a = await setupAdmin(app);
+  await put(a, 'c', 'r', { data: 1, baseVersion: 0 }).expect(200);
+  await del(a, 'c', 'r', { baseVersion: 1 }).expect(200);
+  const res = await put(a, 'c', 'r', { data: 2, baseVersion: 1 }).expect(409);
+  assert.equal(res.body.current.deleted, true);
+});
+
+test('baseVersion 0 over a live record is still a conflict', async () => {
+  const { app } = makeApp();
+  const a = await setupAdmin(app);
+  await put(a, 'c', 'r', { data: 1, baseVersion: 0 }).expect(200);
+  await put(a, 'c', 'r', { data: 2, baseVersion: 0 }).expect(409);
+});

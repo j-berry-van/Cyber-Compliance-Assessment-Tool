@@ -44,7 +44,12 @@ export default function recordRoutes(db) {
     const write = db.transaction(() => {
       const row = current(collection, id);
       const forced = force === true && isState(collection);
-      if (!forced && (row ? row.version : 0) !== baseVersion) {
+      // Full loads hide tombstones, so a client that never saw this record (or saw it before it was
+      // deleted by someone else and reloaded) re-creates it with baseVersion 0. That means "I believe it
+      // does not exist", which a tombstone satisfies. An edit made against an older live version
+      // (0 < baseVersion < tombstone version) is still a conflict.
+      const createsOverTombstone = !!row?.deleted && baseVersion === 0;
+      if (!forced && !createsOverTombstone && (row ? row.version : 0) !== baseVersion) {
         return { conflict: row ? shape(row) : null };
       }
       const version = (row ? row.version : 0) + 1;

@@ -188,3 +188,16 @@ test('a change queued while offline is sent on reconnect and reaches the other u
   expect(read(engA, 'asm-5')).toEqual({ id: 'asm-5', name: 'offline edit' });
   engOff.reset();
 });
+
+test('re-creating a record someone deleted before this user loaded succeeds without a conflict', async () => {
+  put(engA, 'asm-6', { id: 'asm-6', name: 'first' });
+  await settled(engA);
+  engA.enqueue({ puts: [], deletes: [{ collection: COLLECTION, id: 'asm-6' }] });
+  await settled(engA);
+  await reboot(); // full load hides tombstones, so B has no entry for asm-6
+  put(engB, 'asm-6', { id: 'asm-6', name: 'second' });
+  await settled(engB);
+  expect(engB.useSyncStatus.getState().conflicts).toEqual([]);
+  await engA.pollNow();
+  expect(read(engA, 'asm-6')).toEqual({ id: 'asm-6', name: 'second' });
+});
